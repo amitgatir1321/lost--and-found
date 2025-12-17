@@ -59,6 +59,9 @@ const Footer = () => {
               <Link href="/report-found" color="inherit" underline="hover" sx={{ opacity: 0.9 }}>
                 Report Found
               </Link>
+              <Link href="/contact" color="inherit" underline="hover" sx={{ opacity: 0.9 }}>
+                Contact Us
+              </Link>
             </Box>
           </Grid>
 

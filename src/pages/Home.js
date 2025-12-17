@@ -12,10 +12,15 @@ import {
   MenuItem,
   Button,
   Alert,
-  Paper
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CardActions
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { collection, query, getDocs, where, addDoc, getDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -31,7 +36,12 @@ const Home = () => {
   const [matches, setMatches] = useState([]);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
+  const [openClaimDialog, setOpenClaimDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [claimMessage, setClaimMessage] = useState('');
+  const [claimSuccess, setClaimSuccess] = useState(false);
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const categories = [
     'all',
@@ -100,7 +110,41 @@ const Home = () => {
   });
 
   const locations = Array.from(new Set([...lostItems, ...foundItems].map(item => item.location)));
-  const navigate = useNavigate();
+
+  const handleClaimItem = (item, itemType) => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+    setSelectedItem({ ...item, itemType });
+    setOpenClaimDialog(true);
+  };
+
+  const submitClaim = async () => {
+    if (!claimMessage.trim()) return;
+
+    const ownerDoc = await getDoc(doc(db, 'users', selectedItem.userId));
+    const ownerData = ownerDoc.data();
+
+    await addDoc(collection(db, 'claims'), {
+      itemId: selectedItem.id,
+      itemTitle: selectedItem.title,
+      itemType: selectedItem.itemType,
+      itemOwnerId: selectedItem.userId,
+      itemOwnerEmail: selectedItem.userEmail,
+      claimantId: currentUser.uid,
+      claimantEmail: currentUser.email,
+      claimantName: ownerData?.name || currentUser.email,
+      message: claimMessage,
+      status: 'pending',
+      createdAt: new Date()
+    });
+
+    setOpenClaimDialog(false);
+    setClaimMessage('');
+    setClaimSuccess(true);
+    setTimeout(() => setClaimSuccess(false), 5000);
+  };
 
   return (
     <Box>
@@ -192,7 +236,11 @@ const Home = () => {
       </Box>
 
       {/* How It Works Section */}
-      <Container maxWidth="lg" sx={{ mb: 6 }}>
+      <Container maxWidth="lg" sx={{ mb: 6 }}>        {claimSuccess && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            Claim submitted successfully! The item owner will be notified.
+          </Alert>
+        )}
         <Typography variant="h4" align="center" fontWeight="bold" gutterBottom>
           How It Works
         </Typography>
@@ -328,6 +376,18 @@ const Home = () => {
                       Date Lost: {new Date(item.dateLost).toLocaleDateString()}
                     </Typography>
                   </CardContent>
+                  {currentUser && currentUser.uid !== item.userId && (
+                    <CardActions>
+                      <Button 
+                        fullWidth
+                        variant="contained"
+                        sx={{ bgcolor: '#99744A', '&:hover': { bgcolor: '#414A37' } }}
+                        onClick={() => handleClaimItem(item, 'lost')}
+                      >
+                        I Found This Item
+                      </Button>
+                    </CardActions>
+                  )}
                 </Card>
               </Grid>
             ))}
@@ -374,6 +434,18 @@ const Home = () => {
                       Date Found: {new Date(item.dateFound).toLocaleDateString()}
                     </Typography>
                   </CardContent>
+                  {currentUser && currentUser.uid !== item.userId && (
+                    <CardActions>
+                      <Button 
+                        fullWidth
+                        variant="contained"
+                        sx={{ bgcolor: '#2E7D32', '&:hover': { bgcolor: '#1B5E20' } }}
+                        onClick={() => handleClaimItem(item, 'found')}
+                      >
+                        This is My Item
+                      </Button>
+                    </CardActions>
+                  )}
                 </Card>
               </Grid>
             ))}
@@ -390,6 +462,38 @@ const Home = () => {
           </Box>
         )}
       </Container>
+
+      {/* Claim Item Dialog */}
+      <Dialog open={openClaimDialog} onClose={() => setOpenClaimDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {selectedItem?.itemType === 'lost' ? 'Claim Found Item' : 'Claim This is Your Item'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Explain why this is your item or provide details to verify ownership.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Message to Owner"
+            placeholder="Describe the item details, where you lost/found it, or any identifying features..."
+            value={claimMessage}
+            onChange={(e) => setClaimMessage(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenClaimDialog(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={submitClaim}
+            sx={{ bgcolor: '#414A37', '&:hover': { bgcolor: '#99744A' } }}
+          >
+            Submit Claim
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

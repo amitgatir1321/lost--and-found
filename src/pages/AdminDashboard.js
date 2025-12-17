@@ -29,6 +29,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 const AdminDashboard = () => {
   const [lostItems, setLostItems] = useState([]);
   const [foundItems, setFoundItems] = useState([]);
+  const [claims, setClaims] = useState([]);
   const [selectedArea, setSelectedArea] = useState('all');
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
@@ -65,9 +66,11 @@ const AdminDashboard = () => {
 
       const lostSnapshot = await getDocs(lostQuery);
       const foundSnapshot = await getDocs(foundQuery);
+      const claimsSnapshot = await getDocs(collection(db, 'claims'));
 
       setLostItems(lostSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setFoundItems(foundSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setClaims(claimsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (error) {
       console.error('Error fetching items:', error);
     }
@@ -187,6 +190,7 @@ const AdminDashboard = () => {
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
           <Tab label={`Lost Items (${lostItems.length})`} />
           <Tab label={`Found Items (${foundItems.length})`} />
+          <Tab label={`All Claims (${claims.length})`} />
         </Tabs>
       </Box>
 
@@ -215,6 +219,81 @@ const AdminDashboard = () => {
           ) : (
             <Paper sx={{ p: 3, textAlign: 'center' }}>
               <Typography color="text.secondary">No found items found</Typography>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {tabValue === 2 && (
+        <Box>
+          <Typography variant="h6" gutterBottom sx={{ color: '#414A37' }}>
+            All Claims
+          </Typography>
+          {claims.length > 0 ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>Item</strong></TableCell>
+                    <TableCell><strong>Type</strong></TableCell>
+                    <TableCell><strong>Claimant</strong></TableCell>
+                    <TableCell><strong>Owner</strong></TableCell>
+                    <TableCell><strong>Message</strong></TableCell>
+                    <TableCell><strong>Status</strong></TableCell>
+                    <TableCell><strong>Date</strong></TableCell>
+                    <TableCell><strong>Actions</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {claims.map((claim) => (
+                    <TableRow key={claim.id}>
+                      <TableCell>{claim.itemTitle}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={claim.itemType} 
+                          size="small"
+                          color={claim.itemType === 'lost' ? 'error' : 'success'}
+                        />
+                      </TableCell>
+                      <TableCell>{claim.claimantEmail}</TableCell>
+                      <TableCell>{claim.itemOwnerEmail}</TableCell>
+                      <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {claim.message}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={claim.status}
+                          size="small"
+                          color={
+                            claim.status === 'approved' ? 'success' :
+                            claim.status === 'rejected' ? 'error' : 'warning'
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(claim.createdAt.seconds * 1000).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          color="error"
+                          startIcon={<DeleteIcon />}
+                          onClick={async () => {
+                            await deleteDoc(doc(db, 'claims', claim.id));
+                            fetchItems();
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography color="text.secondary">No claims found</Typography>
             </Paper>
           )}
         </Box>

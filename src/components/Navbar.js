@@ -8,6 +8,10 @@ const Navbar = () => {
   const { currentUser, logout, userRole } = useAuth();
   const navigate = useNavigate();
 
+  // Debug logging
+  console.log('Navbar - currentUser:', currentUser);
+  console.log('Navbar - userRole:', userRole);
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -62,18 +66,49 @@ const Navbar = () => {
           >
             Report Found
           </Button>
+          {currentUser && userRole === 'admin' && (
+            <Button 
+              sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#99744A', color: '#FFFFFF' } }}
+              onClick={() => navigate(`/admin/${currentUser.uid}`)}
+            >
+              Admin
+            </Button>
+          )}
           <Button 
             sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#99744A', color: '#FFFFFF' } }}
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate('/contact')}
           >
-            Admin
+            Contact
           </Button>
-          <Button 
-            sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#414A37', color: '#FFFFFF' } }}
-            onClick={() => navigate('/login')}
-          >
-            Login (Optional)
-          </Button>
+          {currentUser ? (
+            <>
+              <Button 
+                sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#99744A', color: '#FFFFFF' } }}
+                onClick={() => navigate('/my-claims')}
+              >
+                My Claims
+              </Button>
+              <Button 
+                sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#99744A', color: '#FFFFFF' } }}
+                onClick={() => navigate('/profile')}
+              >
+                Profile
+              </Button>
+              <Button 
+                sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#414A37', color: '#FFFFFF' } }}
+                onClick={handleLogout}
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button 
+              sx={{ color: '#414A37', fontWeight: 600, '&:hover': { backgroundColor: '#414A37', color: '#FFFFFF' } }}
+              onClick={() => navigate('/login')}
+            >
+              Login
+            </Button>
+          )}
         </Box>
       </Toolbar>
     </AppBar>

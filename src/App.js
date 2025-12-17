@@ -7,12 +7,17 @@ import theme from './theme/theme';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AdminRoute from './components/AdminRoute';
+import PrivateRoute from './components/PrivateRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ReportLost from './pages/ReportLost';
 import ReportFound from './pages/ReportFound';
 import AdminDashboard from './pages/AdminDashboard';
+import Contact from './pages/Contact';
+import Profile from './pages/Profile';
+import MyClaims from './pages/MyClaims';
 
 function App() {
   return (
@@ -29,7 +34,31 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/report-lost" element={<ReportLost />} />
                 <Route path="/report-found" element={<ReportFound />} />
-                <Route path="/admin" element={<AdminDashboard />} />
+                <Route 
+                  path="/admin/:id" 
+                  element={
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <PrivateRoute>
+                      <Profile />
+                    </PrivateRoute>
+                  } 
+                />
+                <Route 
+                  path="/my-claims" 
+                  element={
+                    <PrivateRoute>
+                      <MyClaims />
+                    </PrivateRoute>
+                  } 
+                />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Box>
