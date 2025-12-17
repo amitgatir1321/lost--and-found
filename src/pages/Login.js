@@ -1,61 +1,94 @@
-import React, { useState } from "react";
-import { Form, Button, Container, Alert } from "react-bootstrap";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebaseConfig";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from 'react';
+import {
+  Container,
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Alert,
+  Link
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/");
-    } catch (err) {
-      setError(err.message);
+      setError('');
+      setLoading(true);
+      await login(email, password);
+      navigate('/');
+    } catch (error) {
+      setError('Failed to log in: ' + error.message);
     }
+    setLoading(false);
   };
 
   return (
-    <Container className="mt-5">
-      <div className="row justify-content-center">
-        <div className="col-md-6">
-          <h2 className="mb-4">Login</h2>
-          {error && <Alert variant="danger">{error}</Alert>}
-          <Form onSubmit={handleLogin}>
-            <Form.Group className="mb-3">
-              <Form.Label>Email</Form.Label>
-              <Form.Control
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Password</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Button variant="primary" type="submit" className="w-100">
+    <Container maxWidth="sm">
+      <Box sx={{ mt: 8, mb: 4 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            Login
+          </Typography>
+          
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          
+          <Box component="form" onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              margin="normal"
+              required
+            />
+            
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              margin="normal"
+              required
+            />
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              color="secondary"
+              disabled={loading}
+              sx={{ mt: 3, mb: 2 }}
+            >
               Login
             </Button>
-          </Form>
-          <p className="mt-3">
-            Don't have an account? <Link to="/register">Register here</Link>
-          </p>
-        </div>
-      </div>
+            
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2">
+                Don't have an account?{' '}
+                <Link href="/register" underline="hover">
+                  Register
+                </Link>
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
     </Container>
   );
-}
+};
 
 export default Login;

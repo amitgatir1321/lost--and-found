@@ -1,89 +1,166 @@
-import React, { useState } from "react";
-import { Form, Button, Container, Alert } from "react-bootstrap";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../firebaseConfig";
-import { setDoc, doc } from "firebase/firestore";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from 'react';
+import {
+  Container,
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Alert,
+  Link,
+  MenuItem
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+const Register = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    area: ''
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signup } = useAuth();
   const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
+  const areas = [
+    'Downtown',
+    'Uptown',
+    'East Side',
+    'West Side',
+    'North District',
+    'South District',
+    'Central',
+    'Suburbs'
+  ];
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
+
+    if (formData.password !== formData.confirmPassword) {
+      return setError('Passwords do not match');
+    }
+
+    if (formData.password.length < 6) {
+      return setError('Password must be at least 6 characters');
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const uid = userCredential.user.uid;
-
-      await setDoc(doc(db, "users", uid), {
-        email,
-        role: "user",
-        createdAt: new Date(),
-      });
-
-      navigate("/");
-    } catch (err) {
-      setError(err.message);
+      setError('');
+      setLoading(true);
+      await signup(formData.email, formData.password, formData.name, formData.area);
+      navigate('/');
+    } catch (error) {
+      setError('Failed to create account: ' + error.message);
     }
+    setLoading(false);
   };
 
   return (
-    <Container className="mt-5">
-      <div className="row justify-content-center">
-        <div className="col-md-6">
-          <h2 className="mb-4">Register</h2>
-          {error && <Alert variant="danger">{error}</Alert>}
-          <Form onSubmit={handleRegister}>
-            <Form.Group className="mb-3">
-              <Form.Label>Email</Form.Label>
-              <Form.Control
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Password</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Confirm Password</Form.Label>
-              <Form.Control
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Button variant="primary" type="submit" className="w-100">
+    <Container maxWidth="sm">
+      <Box sx={{ mt: 8, mb: 4 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            Register
+          </Typography>
+          
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          
+          <Box component="form" onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              label="Name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              margin="normal"
+              required
+            />
+            
+            <TextField
+              fullWidth
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              margin="normal"
+              required
+            />
+            
+            <TextField
+              fullWidth
+              label="Password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              margin="normal"
+              required
+            />
+            
+            <TextField
+              fullWidth
+              label="Confirm Password"
+              name="confirmPassword"
+              type="password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              margin="normal"
+              required
+            />
+            
+            <TextField
+              fullWidth
+              select
+              label="Area"
+              name="area"
+              value={formData.area}
+              onChange={handleChange}
+              margin="normal"
+              required
+            >
+              {areas.map((area) => (
+                <MenuItem key={area} value={area}>
+                  {area}
+                </MenuItem>
+              ))}
+            </TextField>
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              color="secondary"
+              disabled={loading}
+              sx={{ mt: 3, mb: 2 }}
+            >
               Register
             </Button>
-          </Form>
-          <p className="mt-3">
-            Already have an account? <Link to="/login">Login here</Link>
-          </p>
-        </div>
-      </div>
+            
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2">
+                Already have an account?{' '}
+                <Link href="/login" underline="hover">
+                  Login
+                </Link>
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
     </Container>
   );
-}
+};
 
 export default Register;

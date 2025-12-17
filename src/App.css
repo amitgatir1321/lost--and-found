@@ -1,109 +1,14 @@
-:root{
-  --primary:#0d6efd;
-  --bg:#f6f8fa;
-  --card:#ffffff;
-  --muted:#6c757d;
-  --accent:#0b5ed7;
-}
-
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+﻿* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  background-color: var(--bg);
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  color:#212529;
+  font-family: 'Roboto', sans-serif;
+  background-color: #F5F5F5;
 }
 
-.navbar {
-  background: linear-gradient(90deg, rgba(13,110,253,0.95), rgba(11,92,215,0.95));
-  color: #fff;
-}
-
-.avatar-circle {
-  display:inline-block;
-  width:36px;
-  height:36px;
-  line-height:36px;
-  border-radius:50%;
-  background:rgba(255,255,255,0.15);
-  text-align:center;
-  color:#fff;
-  font-weight:600;
-}
-
-.container { max-width:1140px; }
-
-.card {
-  background: var(--card);
-  border: none;
-  border-radius: 10px;
-  transition: transform .18s ease, box-shadow .18s ease;
-  box-shadow: 0 6px 18px rgba(16,24,40,0.06);
-}
-
-.card:hover { transform: translateY(-6px); box-shadow: 0 10px 30px rgba(16,24,40,0.08); }
-
-.btn-primary {
-  background: var(--primary);
-  border: none;
-  box-shadow: 0 6px 18px rgba(13,110,253,0.18);
-}
-
-.btn-logout { color: rgba(255,255,255,0.85); }
-
-.search-input:focus {
-  box-shadow: 0 0 0 0.15rem rgba(13,110,253,0.15);
-  border-color: var(--accent);
-}
-
-/* loaders centered */
-.spinner-border {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 240px;
-}
-
-/* responsive tweaks */
-@media (max-width: 768px){
-  .search-input { display:none; }
-  .avatar-circle { width:32px; height:32px; line-height:32px; }
-  .card img { height: 180px; object-fit:cover; }
+.App {
+  min-height: 100vh;
 }
