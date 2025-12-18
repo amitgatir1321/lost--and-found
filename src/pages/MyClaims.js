@@ -15,7 +15,11 @@ import {
   TextField,
   Alert,
   Paper,
-  Divider
+  Divider,
+  Badge,
+  Tabs,
+  Tab,
+  Avatar
 } from '@mui/material';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -24,6 +28,10 @@ import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
+import CancelIcon from '@mui/icons-material/Cancel';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import SendIcon from '@mui/icons-material/Send';
+import InboxIcon from '@mui/icons-material/Inbox';
 
 const MyClaims = () => {
   const { currentUser } = useAuth();
@@ -33,6 +41,8 @@ const MyClaims = () => {
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [contactInfo, setContactInfo] = useState('');
+  const [tabValue, setTabValue] = useState(0);
+  const [newClaimsCount, setNewClaimsCount] = useState(0);
 
   useEffect(() => {
     if (currentUser) {
@@ -57,7 +67,12 @@ const MyClaims = () => {
     // Fetch claims on my items
     const claimsQuery = query(collection(db, 'claims'), where('itemOwnerId', '==', currentUser.uid));
     const claimsSnap = await getDocs(claimsQuery);
-    setReceivedClaims(claimsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const received = claimsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setReceivedClaims(received);
+    
+    // Count pending claims
+    const pendingCount = received.filter(claim => claim.status === 'pending').length;
+    setNewClaimsCount(pendingCount);
 
     // Fetch claims I made
     const myClaimsQuery = query(collection(db, 'claims'), where('claimantId', '==', currentUser.uid));
@@ -101,15 +116,66 @@ const MyClaims = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" fontWeight="bold" gutterBottom>
-        My Claims & Items
-      </Typography>
-
-      {/* Claims on My Items */}
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h5" gutterBottom sx={{ color: '#414A37' }}>
-          Claims on My Items ({receivedClaims.length})
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight="bold" gutterBottom>
+          My Claims & Requests
         </Typography>
+        {newClaimsCount > 0 && (
+          <Alert 
+            severity="info" 
+            icon={<NotificationsActiveIcon />}
+            sx={{ 
+              mt: 2,
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.8 }
+              }
+            }}
+          >
+            <Typography fontWeight={600}>
+              You have {newClaimsCount} pending claim request{newClaimsCount > 1 ? 's' : ''} waiting for your response!
+            </Typography>
+          </Alert>
+        )}
+      </Box>
+
+      <Paper sx={{ mb: 3 }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={(e, newValue) => setTabValue(newValue)}
+          variant="fullWidth"
+          sx={{
+            '& .MuiTab-root': {
+              fontWeight: 600,
+              fontSize: '1rem'
+            }
+          }}
+        >
+          <Tab 
+            icon={
+              <Badge badgeContent={newClaimsCount} color="error">
+                <InboxIcon />
+              </Badge>
+            }
+            label="Received Requests" 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<SendIcon />} 
+            label="My Sent Claims" 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Paper>
+
+      {/* Tab Panel 0: Claims on My Items */}
+      {tabValue === 0 && (
+        <Box>
+          <Typography variant="h5" gutterBottom sx={{ color: '#414A37', mb: 3 }}>
+            <InboxIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+            Requests on My Items ({receivedClaims.length})
+          </Typography>
         <Grid container spacing={2}>
           {receivedClaims.length === 0 ? (
             <Grid item xs={12}>
@@ -120,9 +186,32 @@ const MyClaims = () => {
           ) : (
             receivedClaims.map((claim) => (
               <Grid item xs={12} key={claim.id}>
-                <Card>
+                <Card 
+                  elevation={claim.status === 'pending' ? 4 : 2}
+                  sx={{
+                    border: claim.status === 'pending' ? '2px solid #ff9800' : 'none',
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+                    }
+                  }}
+                >
                   <CardContent>
                     <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} md={1}>
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: claim.status === 'pending' ? '#ff9800' : 
+                                    claim.status === 'approved' ? '#2e7d32' : '#d32f2f',
+                            width: 56,
+                            height: 56
+                          }}
+                        >
+                          {claim.status === 'pending' ? <PendingIcon /> : 
+                           claim.status === 'approved' ? <CheckCircleIcon /> : <CancelIcon />}
+                        </Avatar>
+                      </Grid>
                       <Grid item xs={12} md={6}>
                         <Typography variant="h6" gutterBottom>
                           {claim.itemTitle}
@@ -184,13 +273,14 @@ const MyClaims = () => {
           )}
         </Grid>
       </Box>
+      )}
 
-      <Divider sx={{ my: 4 }} />
-
-      {/* My Claims */}
+      {/* Tab Panel 1: My Claims */}
+      {tabValue === 1 && (
       <Box>
-        <Typography variant="h5" gutterBottom sx={{ color: '#99744A' }}>
-          My Claims ({myClaims.length})
+        <Typography variant="h5" gutterBottom sx={{ color: '#99744A', mb: 3 }}>
+          <SendIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+          My Sent Claims ({myClaims.length})
         </Typography>
         <Grid container spacing={2}>
           {myClaims.length === 0 ? (
@@ -202,8 +292,30 @@ const MyClaims = () => {
           ) : (
             myClaims.map((claim) => (
               <Grid item xs={12} key={claim.id}>
-                <Card>
+                <Card 
+                  sx={{
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+                    }
+                  }}
+                >
                   <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                      <Avatar 
+                        sx={{ 
+                          bgcolor: claim.status === 'pending' ? '#ff9800' : 
+                                  claim.status === 'approved' ? '#2e7d32' : '#d32f2f',
+                          width: 48,
+                          height: 48,
+                          mt: 1
+                        }}
+                      >
+                        {claim.status === 'pending' ? <PendingIcon /> : 
+                         claim.status === 'approved' ? <CheckCircleIcon /> : <CancelIcon />}
+                      </Avatar>
+                      <Box sx={{ flex: 1 }}>
                     <Typography variant="h6" gutterBottom>
                       {claim.itemTitle}
                     </Typography>
@@ -226,6 +338,8 @@ const MyClaims = () => {
                         Waiting for owner to share contact information...
                       </Alert>
                     )}
+                      </Box>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -233,10 +347,10 @@ const MyClaims = () => {
           )}
         </Grid>
       </Box>
+      )}
 
-      {/* Share Contact Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Share Your Contact Information</DialogTitle>
+        <DialogTitle>Share Contact Information</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" paragraph>
             Share your contact details so the claimant can reach you to arrange item return.

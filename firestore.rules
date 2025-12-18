@@ -13,7 +13,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null;
       allow update, delete: if request.auth.uid == resource.data.userId || 
-                               get(/databases//documents/users/).data.role == 'admin';
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Found items collection
@@ -21,28 +21,28 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null;
       allow update, delete: if request.auth.uid == resource.data.userId || 
-                               get(/databases//documents/users/).data.role == 'admin';
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
-    // Claims collection - NEW
+    // Claims collection
     match /claims/{claimId} {
       allow read: if request.auth != null && 
                     (request.auth.uid == resource.data.itemOwnerId || 
                      request.auth.uid == resource.data.claimantId ||
-                     get(/databases//documents/users/).data.role == 'admin');
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
       allow create: if request.auth != null && request.auth.uid == request.resource.data.claimantId;
       allow update: if request.auth != null && request.auth.uid == resource.data.itemOwnerId;
       allow delete: if request.auth != null && 
-                      get(/databases//documents/users/).data.role == 'admin';
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Contact messages collection
     match /contactMessages/{messageId} {
       allow read: if request.auth != null && 
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      allow create: if true; // Anyone can send a message
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if true; // Anyone can send a contact message (even unauthenticated users)
       allow update, delete: if request.auth != null && 
-                              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }

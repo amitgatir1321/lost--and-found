@@ -19,17 +19,21 @@ import {
   DialogContent,
   DialogActions,
   Tabs,
-  Tab
+  Tab,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import { collection, query, getDocs, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 
 const AdminDashboard = () => {
   const [lostItems, setLostItems] = useState([]);
   const [foundItems, setFoundItems] = useState([]);
   const [claims, setClaims] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [selectedArea, setSelectedArea] = useState('all');
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
@@ -67,10 +71,18 @@ const AdminDashboard = () => {
       const lostSnapshot = await getDocs(lostQuery);
       const foundSnapshot = await getDocs(foundQuery);
       const claimsSnapshot = await getDocs(collection(db, 'claims'));
+      const messagesSnapshot = await getDocs(collection(db, 'contactMessages'));
 
       setLostItems(lostSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setFoundItems(foundSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setClaims(claimsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      const messagesData = messagesSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() 
+      }));
+      setMessages(messagesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
     } catch (error) {
       console.error('Error fetching items:', error);
     }
@@ -97,6 +109,26 @@ const AdminDashboard = () => {
       fetchItems();
     } catch (error) {
       console.error('Error deleting item:', error);
+    }
+  };
+
+  const handleMarkMessageRead = async (messageId) => {
+    try {
+      await updateDoc(doc(db, 'contactMessages', messageId), {
+        status: 'read'
+      });
+      fetchItems();
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      await deleteDoc(doc(db, 'contactMessages', messageId));
+      fetchItems();
+    } catch (error) {
+      console.error('Error deleting message:', error);
     }
   };
 
@@ -191,6 +223,7 @@ const AdminDashboard = () => {
           <Tab label={`Lost Items (${lostItems.length})`} />
           <Tab label={`Found Items (${foundItems.length})`} />
           <Tab label={`All Claims (${claims.length})`} />
+          <Tab label={`Messages (${messages.filter(m => m.status === 'unread').length})`} />
         </Tabs>
       </Box>
 
@@ -294,6 +327,84 @@ const AdminDashboard = () => {
           ) : (
             <Paper sx={{ p: 3, textAlign: 'center' }}>
               <Typography color="text.secondary">No claims found</Typography>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {tabValue === 3 && (
+        <Box>
+          <Typography variant="h6" gutterBottom sx={{ color: '#414A37' }}>
+            Contact Messages
+          </Typography>
+          {messages.length > 0 ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>Name</strong></TableCell>
+                    <TableCell><strong>Email</strong></TableCell>
+                    <TableCell><strong>Subject</strong></TableCell>
+                    <TableCell><strong>Message</strong></TableCell>
+                    <TableCell><strong>Date</strong></TableCell>
+                    <TableCell><strong>Status</strong></TableCell>
+                    <TableCell><strong>Actions</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {messages.map((message) => (
+                    <TableRow 
+                      key={message.id}
+                      sx={{ backgroundColor: message.status === 'unread' ? '#fff3e0' : 'inherit' }}
+                    >
+                      <TableCell>{message.name}</TableCell>
+                      <TableCell>{message.email}</TableCell>
+                      <TableCell>{message.subject}</TableCell>
+                      <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {message.message}
+                      </TableCell>
+                      <TableCell>
+                        {message.createdAt?.toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={message.status}
+                          color={message.status === 'read' ? 'success' : 'warning'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {message.status === 'unread' && (
+                            <Tooltip title="Mark as Read">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleMarkMessageRead(message.id)}
+                                color="primary"
+                              >
+                                <MarkEmailReadIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography color="text.secondary">No messages found</Typography>
             </Paper>
           )}
         </Box>

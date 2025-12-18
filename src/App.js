@@ -15,9 +15,13 @@ import Register from './pages/Register';
 import ReportLost from './pages/ReportLost';
 import ReportFound from './pages/ReportFound';
 import AdminDashboard from './pages/AdminDashboard';
+import SetupAdmin from './pages/SetupAdmin';
 import Contact from './pages/Contact';
 import Profile from './pages/Profile';
 import MyClaims from './pages/MyClaims';
+import HowItWorks from './pages/HowItWorks';
+import BrowseItems from './pages/BrowseItems';
+import ItemDetail from './pages/ItemDetail';
 
 function App() {
   return (
@@ -32,10 +36,14 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/" element={<Home />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+                <Route path="/browse-items" element={<BrowseItems />} />
+                <Route path="/item/:itemType/:itemId" element={<ItemDetail />} />
+                <Route path="/setup-admin" element={<SetupAdmin />} />
                 <Route path="/report-lost" element={<ReportLost />} />
                 <Route path="/report-found" element={<ReportFound />} />
                 <Route 
-                  path="/admin/:id" 
+                  path="/admin" 
                   element={
                     <AdminRoute>
                       <AdminDashboard />

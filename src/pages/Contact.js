@@ -9,14 +9,20 @@ import {
   Paper,
   Card,
   CardContent,
-  Alert
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SendIcon from '@mui/icons-material/Send';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
 
 const Contact = () => {
+  const { currentUser } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,6 +30,8 @@ const Contact = () => {
     message: ''
   });
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setFormData({
@@ -32,16 +40,37 @@ const Contact = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccess(true);
-    setFormData({
-      name: '',
-      email: '',
-      subject: '',
-      message: ''
-    });
-    setTimeout(() => setSuccess(false), 5000);
+    setLoading(true);
+    setError('');
+    setSuccess(false);
+
+    try {
+      await addDoc(collection(db, 'contactMessages'), {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        userId: currentUser?.uid || null,
+        status: 'unread',
+        createdAt: new Date()
+      });
+
+      setSuccess(true);
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: ''
+      });
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,18 +78,30 @@ const Contact = () => {
       {/* Hero Section */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #414A37 0%, #556147 100%)',
+          backgroundImage: 'linear-gradient(135deg, rgba(65, 74, 55, 0.9), rgba(153, 116, 74, 0.9)), url(https://images.unsplash.com/photo-1423666639041-f56000c27a9a?auto=format&fit=crop&w=1920)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           color: 'white',
-          py: 6,
-          mb: 6
+          py: 8,
+          mb: 6,
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+          }
         }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Typography variant="h3" fontWeight="bold" gutterBottom align="center">
-            Get In Touch
+            💬 Get In Touch
           </Typography>
-          <Typography variant="h6" align="center" sx={{ opacity: 0.95 }}>
-            We're here to help you reunite with your lost items
+          <Typography variant="h6" align="center" sx={{ opacity: 0.95, maxWidth: 700, mx: 'auto' }}>
+            Have questions or need assistance? We're here to help you reunite with your lost items!
           </Typography>
         </Container>
       </Box>
@@ -69,42 +110,117 @@ const Contact = () => {
         <Grid container spacing={4}>
           {/* Contact Information Cards */}
           <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%', textAlign: 'center', p: 2 }}>
-              <EmailIcon sx={{ fontSize: 50, color: '#414A37', mb: 2 }} />
+            <Card 
+              sx={{ 
+                height: '100%', 
+                textAlign: 'center', 
+                p: 3,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(65, 74, 55, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}
+              >
+                <EmailIcon sx={{ fontSize: 40, color: '#414A37' }} />
+              </Box>
               <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Email Us
+                📧 Email Us
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" sx={{ mb: 1 }}>
                 support@lostandfound.com
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" variant="body2">
                 info@lostandfound.com
               </Typography>
             </Card>
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%', textAlign: 'center', p: 2 }}>
-              <PhoneIcon sx={{ fontSize: 50, color: '#99744A', mb: 2 }} />
+            <Card 
+              sx={{ 
+                height: '100%', 
+                textAlign: 'center', 
+                p: 3,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(153, 116, 74, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}
+              >
+                <PhoneIcon sx={{ fontSize: 40, color: '#99744A' }} />
+              </Box>
               <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Call Us
+                📞 Call Us
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" sx={{ mb: 1 }}>
                 (555) 123-4567
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" variant="body2">
                 Mon-Fri: 9AM - 6PM
               </Typography>
             </Card>
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%', textAlign: 'center', p: 2 }}>
-              <AccessTimeIcon sx={{ fontSize: 50, color: '#DBC2A6', mb: 2 }} />
+            <Card 
+              sx={{ 
+                height: '100%', 
+                textAlign: 'center', 
+                p: 3,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(219, 194, 166, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}
+              >
+                <AccessTimeIcon sx={{ fontSize: 40, color: '#99744A' }} />
+              </Box>
               <Typography variant="h6" fontWeight="bold" gutterBottom>
-                24/7 Support
+                ⏰ 24/7 Support
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" sx={{ mb: 1 }}>
                 Online chat available
               </Typography>
               <Typography color="text.secondary">
@@ -116,14 +232,46 @@ const Contact = () => {
 
         {/* Contact Form */}
         <Box sx={{ mt: 6 }}>
-          <Paper elevation={3} sx={{ p: 4 }}>
-            <Typography variant="h5" fontWeight="bold" gutterBottom align="center" sx={{ mb: 3 }}>
-              Send Us a Message
+          <Paper 
+            elevation={4} 
+            sx={{ 
+              p: 4, 
+              background: 'linear-gradient(to bottom right, #ffffff, #f5f5f5)',
+              borderRadius: 3
+            }}
+          >
+            <Typography 
+              variant="h4" 
+              fontWeight="bold" 
+              gutterBottom 
+              align="center" 
+              sx={{ 
+                mb: 1,
+                background: 'linear-gradient(135deg, #414A37, #99744A)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              ✉️ Send Us a Message
+            </Typography>
+            <Typography 
+              variant="body1" 
+              align="center" 
+              color="text.secondary" 
+              sx={{ mb: 4 }}
+            >
+              Fill out the form below and we'll respond within 24 hours
             </Typography>
 
             {success && (
               <Alert severity="success" sx={{ mb: 3 }}>
-                Thank you for contacting us! We'll get back to you soon.
+                ✅ Thank you for contacting us! We'll get back to you soon.
+              </Alert>
+            )}
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
               </Alert>
             )}
 
@@ -182,15 +330,18 @@ const Contact = () => {
                     variant="contained"
                     size="large"
                     fullWidth
+                    disabled={loading}
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
                     sx={{
                       backgroundColor: '#414A37',
                       color: '#FFFFFF',
                       fontWeight: 'bold',
                       py: 1.5,
-                      '&:hover': { backgroundColor: '#99744A' }
+                      '&:hover': { backgroundColor: '#99744A' },
+                      '&:disabled': { opacity: 0.7 }
                     }}
                   >
-                    Send Message
+                    {loading ? 'Sending...' : 'Send Message'}
                   </Button>
                 </Grid>
               </Grid>
