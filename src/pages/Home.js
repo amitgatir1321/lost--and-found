@@ -266,27 +266,45 @@ const Home = () => {
       </Box>
 
       {/* Browse Items Section */}
-      <Container maxWidth="lg" sx={{ mb: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 6 }}>
         {claimSuccess && (
-          <Alert severity="success" sx={{ mb: 3 }}>
-            Claim submitted successfully! The item owner will be notified.
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 4,
+              backgroundColor: 'rgba(46, 125, 50, 0.1)',
+              borderLeft: '4px solid #2e7d32'
+            }}
+          >
+            ✅ Claim submitted successfully! The item owner will be notified.
           </Alert>
         )}
 
-        <Typography variant="h4" align="center" fontWeight="bold" gutterBottom>
-          Browse Items
-        </Typography>
-        <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
-          Filter by category and location to find what you're looking for
-        </Typography>
+        <Box sx={{ textAlign: 'center', mb: 5 }}>
+          <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#414A37' }}>
+            🔍 Browse Items
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
+            Filter by category and location to find what you're looking for
+          </Typography>
+        </Box>
 
         {matches.length > 0 && (
-          <Alert severity="success" sx={{ mb: 3 }} icon={<CheckCircleIcon />}>
-            <strong>Great news!</strong> We found {matches.length} potential match(es) based on category and location!
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 4,
+              backgroundColor: 'rgba(46, 125, 50, 0.1)',
+              borderLeft: '4px solid #2e7d32',
+              fontWeight: 500
+            }} 
+            icon={<CheckCircleIcon />}
+          >
+            <strong>🎯 Great news!</strong> We found {matches.length} potential match(es) based on category and location!
           </Alert>
         )}
 
-        <Box sx={{ mb: 4 }}>
+        <Paper elevation={2} sx={{ p: 3, mb: 4, backgroundColor: '#f9f9f9' }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
               <TextField
@@ -295,6 +313,13 @@ const Home = () => {
                 label="Filter by Category"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'white',
+                    '&:hover fieldset': { borderColor: '#99744A' },
+                    '&.Mui-focused fieldset': { borderColor: '#414A37' }
+                  }
+                }}
               >
                 {categories.map((cat) => (
                   <MenuItem key={cat} value={cat}>
@@ -310,6 +335,13 @@ const Home = () => {
                 label="Filter by Location"
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'white',
+                    '&:hover fieldset': { borderColor: '#99744A' },
+                    '&.Mui-focused fieldset': { borderColor: '#414A37' }
+                  }
+                }}
               >
                 <MenuItem value="all">All Locations</MenuItem>
                 {locations.map((loc) => (
@@ -320,13 +352,23 @@ const Home = () => {
               </TextField>
             </Grid>
           </Grid>
-        </Box>
+        </Paper>
 
         <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
-            <Typography variant="h5" gutterBottom color="secondary">
-              Lost Items ({filteredLostItems.length})
-            </Typography>
+            <Box 
+              sx={{ 
+                p: 2, 
+                mb: 2,
+                borderRadius: 2,
+                backgroundColor: 'rgba(211, 47, 47, 0.05)',
+                borderLeft: '4px solid #d32f2f'
+              }}
+            >
+              <Typography variant="h5" fontWeight="bold" sx={{ color: '#d32f2f' }}>
+                📉 Lost Items ({filteredLostItems.length})
+              </Typography>
+            </Box>
             <Grid container spacing={2}>
               {filteredLostItems.map((item) => (
                 <Grid item xs={12} key={item.id}>
@@ -350,7 +392,7 @@ const Home = () => {
                       />
                     )}
                     <CardContent>
-                      <Typography variant="h6" gutterBottom>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
                         {item.title}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" paragraph>
@@ -361,16 +403,25 @@ const Home = () => {
                           icon={<CategoryIcon />} 
                           label={item.category} 
                           size="small" 
-                          color="primary"
+                          sx={{ 
+                            backgroundColor: '#d32f2f',
+                            color: 'white',
+                            fontWeight: 500
+                          }}
                         />
                         <Chip 
                           icon={<LocationOnIcon />} 
                           label={item.location} 
-                          size="small" 
+                          size="small"
+                          sx={{ 
+                            backgroundColor: '#DBC2A6',
+                            color: '#414A37',
+                            fontWeight: 500
+                          }}
                         />
                       </Box>
-                      <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                        Date Lost: {new Date(item.dateLost).toLocaleDateString()}
+                      <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: 500 }}>
+                        📅 Date Lost: {new Date(item.dateLost).toLocaleDateString()}
                       </Typography>
                     </CardContent>
                     {currentUser && currentUser.uid !== item.userId && (
@@ -378,7 +429,11 @@ const Home = () => {
                         <Button 
                           fullWidth
                           variant="contained"
-                          sx={{ bgcolor: '#99744A', '&:hover': { bgcolor: '#414A37' } }}
+                          sx={{ 
+                            bgcolor: '#99744A', 
+                            fontWeight: 600,
+                            '&:hover': { bgcolor: '#414A37' } 
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleClaimItem(item, 'lost');
@@ -395,9 +450,19 @@ const Home = () => {
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Typography variant="h5" gutterBottom sx={{ color: '#2E7D32' }}>
-              Found Items ({filteredFoundItems.length})
-            </Typography>
+            <Box 
+              sx={{ 
+                p: 2, 
+                mb: 2,
+                borderRadius: 2,
+                backgroundColor: 'rgba(46, 125, 50, 0.05)',
+                borderLeft: '4px solid #2e7d32'
+              }}
+            >
+              <Typography variant="h5" fontWeight="bold" sx={{ color: '#2e7d32' }}>
+                📈 Found Items ({filteredFoundItems.length})
+              </Typography>
+            </Box>
             <Grid container spacing={2}>
               {filteredFoundItems.map((item) => (
                 <Grid item xs={12} key={item.id}>
@@ -421,7 +486,7 @@ const Home = () => {
                       />
                     )}
                     <CardContent>
-                      <Typography variant="h6" gutterBottom>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
                         {item.title}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" paragraph>
@@ -432,16 +497,25 @@ const Home = () => {
                           icon={<CategoryIcon />} 
                           label={item.category} 
                           size="small" 
-                          color="primary"
+                          sx={{ 
+                            backgroundColor: '#2e7d32',
+                            color: 'white',
+                            fontWeight: 500
+                          }}
                         />
                         <Chip 
                           icon={<LocationOnIcon />} 
                           label={item.location} 
-                          size="small" 
+                          size="small"
+                          sx={{ 
+                            backgroundColor: '#DBC2A6',
+                            color: '#414A37',
+                            fontWeight: 500
+                          }}
                         />
                       </Box>
-                      <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                        Date Found: {new Date(item.dateFound).toLocaleDateString()}
+                      <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: 500 }}>
+                        📅 Date Found: {new Date(item.dateFound).toLocaleDateString()}
                       </Typography>
                     </CardContent>
                     {currentUser && currentUser.uid !== item.userId && (
@@ -449,7 +523,11 @@ const Home = () => {
                         <Button 
                           fullWidth
                           variant="contained"
-                          sx={{ bgcolor: '#2E7D32', '&:hover': { bgcolor: '#1B5E20' } }}
+                          sx={{ 
+                            bgcolor: '#2e7d32', 
+                            fontWeight: 600,
+                            '&:hover': { bgcolor: '#1B5E20' } 
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleClaimItem(item, 'found');
@@ -476,159 +554,219 @@ const Home = () => {
         )}
       </Container>
 
-      
-      {/* How It Works Section */}
-      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 5 } }}>
-        <Typography variant="h4" align="center" fontWeight="900" gutterBottom>
-          🚀 How It Works
-        </Typography>
-        <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
-          Three simple steps to reunite with your belongings
-        </Typography>
-        <Grid container spacing={4} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <Box
-              sx={{
-                textAlign: 'center',
-                p: 4,
-                position: 'relative',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'scale(1.05)'
-                }
-              }}
-            >
-              <Box
+      {/* Analytics Section */}
+      <Box 
+        sx={{ 
+          position: 'relative',
+          py: { xs: 6, md: 8 }, 
+          mt: 4,
+          backgroundImage: 'url("https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2000")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, rgba(65, 74, 55, 0.92) 0%, rgba(153, 116, 74, 0.88) 100%)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1
+          }
+        }}
+      >
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
+          <Typography variant="h4" align="center" fontWeight="bold" gutterBottom sx={{ color: 'white' }}>
+            📊 Platform Analytics
+          </Typography>
+          <Typography variant="body1" align="center" sx={{ mb: 6, color: 'rgba(255,255,255,0.9)' }}>
+            Real-time insights into our community's success
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                elevation={4}
                 sx={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  bgcolor: '#d32f2f',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mx: 'auto',
-                  mb: 2,
-                  fontSize: '3rem',
-                  fontWeight: 900,
-                  boxShadow: '0 8px 30px rgba(211, 47, 47, 0.4)'
+                  p: 4,
+                  textAlign: 'center',
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.98)',
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.3)'
+                  }
                 }}
               >
-                1
-              </Box>
-              <Typography sx={{ fontSize: '3rem', mb: 2 }}>📝</Typography>
-              <Typography variant="h5" fontWeight={800} gutterBottom color="#d32f2f">
-                Report
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Submit details with photos and location
-              </Typography>
-            </Box>
+                <Typography variant="h2" fontWeight="900" sx={{ mb: 1, color: '#d32f2f' }}>
+                  {lostItems.length}
+                </Typography>
+                <Typography variant="h6" fontWeight={600} color="#d32f2f">
+                  📉 Lost Items
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Currently reported
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                elevation={4}
+                sx={{
+                  p: 4,
+                  textAlign: 'center',
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.98)',
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.3)'
+                  }
+                }}
+              >
+                <Typography variant="h2" fontWeight="900" sx={{ mb: 1, color: '#2e7d32' }}>
+                  {foundItems.length}
+                </Typography>
+                <Typography variant="h6" fontWeight={600} color="#2e7d32">
+                  📈 Found Items
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Waiting to be claimed
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                elevation={4}
+                sx={{
+                  p: 4,
+                  textAlign: 'center',
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.98)',
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.3)'
+                  }
+                }}
+              >
+                <Typography variant="h2" fontWeight="900" sx={{ mb: 1, color: '#1976d2' }}>
+                  {matches.length}
+                </Typography>
+                <Typography variant="h6" fontWeight={600} color="#1976d2">
+                  🎯 Potential Matches
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Smart matches found
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                elevation={4}
+                sx={{
+                  p: 4,
+                  textAlign: 'center',
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.98)',
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.3)'
+                  }
+                }}
+              >
+                <Typography variant="h2" fontWeight="900" sx={{ mb: 1, color: '#ED6C02' }}>
+                  {Math.round(foundItems.length > 0 ? (matches.length / foundItems.length) * 100 : 0)}%
+                </Typography>
+                <Typography variant="h6" fontWeight={600} color="#ED6C02">
+                  ✅ Success Rate
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Items reunited
+                </Typography>
+              </Paper>
+            </Grid>
           </Grid>
 
-          <Grid item xs={12} md={4}>
-            <Box
-              sx={{
-                textAlign: 'center',
-                p: 4,
-                position: 'relative',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'scale(1.05)'
-                }
-              }}
-            >
-              <Box
-                sx={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  bgcolor: '#1976d2',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mx: 'auto',
-                  mb: 2,
-                  fontSize: '3rem',
-                  fontWeight: 900,
-                  boxShadow: '0 8px 30px rgba(25, 118, 210, 0.4)'
+          {/* Additional Stats */}
+          <Grid container spacing={3} sx={{ mt: 2 }}>
+            <Grid item xs={12} md={4}>
+              <Card 
+                sx={{ 
+                  p: 3, 
+                  textAlign: 'center', 
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
                 }}
               >
-                2
-              </Box>
-              <Typography sx={{ fontSize: '3rem', mb: 2 }}>🔍</Typography>
-              <Typography variant="h5" fontWeight={800} gutterBottom color="#1976d2">
-                Match
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Smart algorithm finds matches automatically
-              </Typography>
-            </Box>
-          </Grid>
+                <Typography variant="h4" fontWeight="bold" sx={{ color: '#414A37' }} gutterBottom>
+                  🔥 {lostItems.filter(item => {
+                    const itemDate = new Date(item.createdAt?.seconds ? item.createdAt.seconds * 1000 : item.createdAt);
+                    const daysDiff = (new Date() - itemDate) / (1000 * 60 * 60 * 24);
+                    return daysDiff <= 7;
+                  }).length}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" fontWeight={500}>
+                  Items reported this week
+                </Typography>
+              </Card>
+            </Grid>
 
-          <Grid item xs={12} md={4}>
-            <Box
-              sx={{
-                textAlign: 'center',
-                p: 4,
-                position: 'relative',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'scale(1.05)'
-                }
-              }}
-            >
-              <Box
-                sx={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  bgcolor: '#2e7d32',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mx: 'auto',
-                  mb: 2,
-                  fontSize: '3rem',
-                  fontWeight: 900,
-                  boxShadow: '0 8px 30px rgba(46, 125, 50, 0.4)'
+            <Grid item xs={12} md={4}>
+              <Card 
+                sx={{ 
+                  p: 3, 
+                  textAlign: 'center', 
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
                 }}
               >
-                3
-              </Box>
-              <Typography sx={{ fontSize: '3rem', mb: 2 }}>🤝</Typography>
-              <Typography variant="h5" fontWeight={800} gutterBottom color="#2e7d32">
-                Reunite
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Verify and coordinate safe meetup
-              </Typography>
-            </Box>
+                <Typography variant="h4" fontWeight="bold" sx={{ color: '#99744A' }} gutterBottom>
+                  🎉 {foundItems.filter(item => {
+                    const itemDate = new Date(item.createdAt?.seconds ? item.createdAt.seconds * 1000 : item.createdAt);
+                    const daysDiff = (new Date() - itemDate) / (1000 * 60 * 60 * 24);
+                    return daysDiff <= 7;
+                  }).length}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" fontWeight={500}>
+                  Items found this week
+                </Typography>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <Card 
+                sx={{ 
+                  p: 3, 
+                  textAlign: 'center', 
+                  height: '100%',
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+              >
+                <Typography variant="h4" fontWeight="bold" sx={{ color: '#DBC2A6' }} gutterBottom>
+                  ⚡ {categories.filter(cat => cat !== 'all').length}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" fontWeight={500}>
+                  Categories available
+                </Typography>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
-        <Box sx={{ textAlign: 'center', mt: 4 }}>
-          <Button 
-            variant="outlined" 
-            size="large"
-            onClick={() => navigate('/how-it-works')}
-            sx={{
-              borderColor: '#414A37',
-              color: '#414A37',
-              fontWeight: 700,
-              px: 4,
-              '&:hover': { 
-                borderColor: '#99744A',
-                bgcolor: 'rgba(153, 116, 74, 0.05)'
-              }
-            }}
-          >
-            Learn More About The Process
-          </Button>
-        </Box>
-      </Container>
+        </Container>
+      </Box>
 
       {/* Claim Item Dialog */}
       <Dialog open={openClaimDialog} onClose={() => setOpenClaimDialog(false)} maxWidth="sm" fullWidth>
