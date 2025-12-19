@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CardActions
+  CardActions,
+  Divider
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, getDocs, where, addDoc, getDoc, doc } from 'firebase/firestore';
@@ -29,6 +30,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import FindInPageIcon from '@mui/icons-material/FindInPage';
 import ReportIcon from '@mui/icons-material/Report';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 const Home = () => {
   const [lostItems, setLostItems] = useState([]);
@@ -376,70 +379,140 @@ const Home = () => {
                     sx={{ 
                       cursor: 'pointer',
                       transition: 'all 0.3s',
+                      position: 'relative',
+                      overflow: 'visible',
                       '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+                        transform: 'translateY(-6px)',
+                        boxShadow: '0 12px 28px rgba(0,0,0,0.18)'
                       }
                     }}
                     onClick={() => navigate(`/item/lost/${item.id}`)}
                   >
-                    {item.imageUrl && (
+                    <Chip
+                      label="LOST"
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        zIndex: 1,
+                        fontWeight: 'bold',
+                        backgroundColor: '#d32f2f',
+                        color: 'white',
+                        boxShadow: 2
+                      }}
+                    />
+                    {item.imageUrl ? (
                       <CardMedia
                         component="img"
                         height="200"
                         image={item.imageUrl}
                         alt={item.title}
+                        sx={{ objectFit: 'cover' }}
                       />
+                    ) : (
+                      <Box
+                        sx={{
+                          height: 200,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'linear-gradient(135deg, #d32f2f 0%, #9a0007 100%)',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            width: '200%',
+                            height: '200%',
+                            background: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
+                            backgroundSize: '20px 20px',
+                          }
+                        }}
+                      >
+                        <InventoryIcon sx={{ fontSize: 70, color: 'rgba(255,255,255,0.7)' }} />
+                      </Box>
                     )}
                     <CardContent>
-                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
                         {item.title}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" paragraph>
+                      <Typography variant="body2" color="text.secondary" paragraph
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          minHeight: '40px'
+                        }}
+                      >
                         {item.description}
                       </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Chip 
-                          icon={<CategoryIcon />} 
-                          label={item.category} 
-                          size="small" 
-                          sx={{ 
-                            backgroundColor: '#d32f2f',
-                            color: 'white',
-                            fontWeight: 500
-                          }}
-                        />
-                        <Chip 
-                          icon={<LocationOnIcon />} 
-                          label={item.location} 
-                          size="small"
-                          sx={{ 
-                            backgroundColor: '#DBC2A6',
-                            color: '#414A37',
-                            fontWeight: 500
-                          }}
-                        />
+                      <Divider sx={{ my: 1.5 }} />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CategoryIcon fontSize="small" sx={{ color: '#d32f2f' }} />
+                          <Chip 
+                            label={item.category} 
+                            size="small" 
+                            sx={{ 
+                              backgroundColor: '#DBC2A6',
+                              color: '#414A37',
+                              fontWeight: 600,
+                              fontSize: '0.75rem'
+                            }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LocationOnIcon fontSize="small" sx={{ color: '#8B8B8B' }} />
+                          <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                            {item.location}
+                          </Typography>
+                        </Box>
+                        {item.dateLost && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <AccessTimeIcon fontSize="small" sx={{ color: '#8B8B8B' }} />
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                              {new Date(item.dateLost).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
-                      <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: 500 }}>
-                        📅 Date Lost: {new Date(item.dateLost).toLocaleDateString()}
-                      </Typography>
                     </CardContent>
                     {currentUser && currentUser.uid !== item.userId && (
-                      <CardActions>
+                      <CardActions sx={{ p: 2, pt: 0 }}>
                         <Button 
                           fullWidth
                           variant="contained"
                           sx={{ 
-                            bgcolor: '#99744A', 
-                            fontWeight: 600,
-                            '&:hover': { bgcolor: '#414A37' } 
+                            bgcolor: '#414A37', 
+                            fontWeight: 'bold',
+                            py: 1.2,
+                            '&:hover': { 
+                              bgcolor: '#556147',
+                              transform: 'scale(1.02)' 
+                            },
+                            transition: 'all 0.2s'
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleClaimItem(item, 'lost');
                           }}
                         >
-                          I Found This Item
+                          ✓ I Found This
                         </Button>
                       </CardActions>
                     )}
@@ -470,70 +543,140 @@ const Home = () => {
                     sx={{ 
                       cursor: 'pointer',
                       transition: 'all 0.3s',
+                      position: 'relative',
+                      overflow: 'visible',
                       '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+                        transform: 'translateY(-6px)',
+                        boxShadow: '0 12px 28px rgba(0,0,0,0.18)'
                       }
                     }}
                     onClick={() => navigate(`/item/found/${item.id}`)}
                   >
-                    {item.imageUrl && (
+                    <Chip
+                      label="FOUND"
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        zIndex: 1,
+                        fontWeight: 'bold',
+                        backgroundColor: '#2e7d32',
+                        color: 'white',
+                        boxShadow: 2
+                      }}
+                    />
+                    {item.imageUrl ? (
                       <CardMedia
                         component="img"
                         height="200"
                         image={item.imageUrl}
                         alt={item.title}
+                        sx={{ objectFit: 'cover' }}
                       />
+                    ) : (
+                      <Box
+                        sx={{
+                          height: 200,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'linear-gradient(135deg, #2e7d32 0%, #1B5E20 100%)',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            width: '200%',
+                            height: '200%',
+                            background: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
+                            backgroundSize: '20px 20px',
+                          }
+                        }}
+                      >
+                        <InventoryIcon sx={{ fontSize: 70, color: 'rgba(255,255,255,0.7)' }} />
+                      </Box>
                     )}
                     <CardContent>
-                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
                         {item.title}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" paragraph>
+                      <Typography variant="body2" color="text.secondary" paragraph
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          minHeight: '40px'
+                        }}
+                      >
                         {item.description}
                       </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Chip 
-                          icon={<CategoryIcon />} 
-                          label={item.category} 
-                          size="small" 
-                          sx={{ 
-                            backgroundColor: '#2e7d32',
-                            color: 'white',
-                            fontWeight: 500
-                          }}
-                        />
-                        <Chip 
-                          icon={<LocationOnIcon />} 
-                          label={item.location} 
-                          size="small"
-                          sx={{ 
-                            backgroundColor: '#DBC2A6',
-                            color: '#414A37',
-                            fontWeight: 500
-                          }}
-                        />
+                      <Divider sx={{ my: 1.5 }} />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CategoryIcon fontSize="small" sx={{ color: '#2e7d32' }} />
+                          <Chip 
+                            label={item.category} 
+                            size="small" 
+                            sx={{ 
+                              backgroundColor: '#DBC2A6',
+                              color: '#414A37',
+                              fontWeight: 600,
+                              fontSize: '0.75rem'
+                            }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LocationOnIcon fontSize="small" sx={{ color: '#8B8B8B' }} />
+                          <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                            {item.location}
+                          </Typography>
+                        </Box>
+                        {item.dateFound && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <AccessTimeIcon fontSize="small" sx={{ color: '#8B8B8B' }} />
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                              {new Date(item.dateFound).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
-                      <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: 500 }}>
-                        📅 Date Found: {new Date(item.dateFound).toLocaleDateString()}
-                      </Typography>
                     </CardContent>
                     {currentUser && currentUser.uid !== item.userId && (
-                      <CardActions>
+                      <CardActions sx={{ p: 2, pt: 0 }}>
                         <Button 
                           fullWidth
                           variant="contained"
                           sx={{ 
-                            bgcolor: '#2e7d32', 
-                            fontWeight: 600,
-                            '&:hover': { bgcolor: '#1B5E20' } 
+                            bgcolor: '#414A37', 
+                            fontWeight: 'bold',
+                            py: 1.2,
+                            '&:hover': { 
+                              bgcolor: '#556147',
+                              transform: 'scale(1.02)' 
+                            },
+                            transition: 'all 0.2s'
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleClaimItem(item, 'found');
                           }}
                         >
-                          This is My Item
+                          ✓ This is Mine
                         </Button>
                       </CardActions>
                     )}
@@ -545,12 +688,26 @@ const Home = () => {
         </Grid>
 
         {filteredLostItems.length === 0 && filteredFoundItems.length === 0 && (
-          <Box sx={{ textAlign: 'center', mt: 4, mb: 4 }}>
+          <Paper
+            elevation={0}
+            sx={{ 
+              textAlign: 'center', 
+              mt: 4, 
+              mb: 4,
+              py: 8,
+              backgroundColor: 'white',
+              borderRadius: 3,
+              border: '2px dashed #e0e0e0'
+            }}
+          >
             <FindInPageIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
-              No items found. Try adjusting your filters.
+            <Typography variant="h5" fontWeight="bold" color="text.secondary" gutterBottom>
+              No Items Found
             </Typography>
-          </Box>
+            <Typography variant="body1" color="text.secondary">
+              Try adjusting your filters to see more results
+            </Typography>
+          </Paper>
         )}
       </Container>
 
