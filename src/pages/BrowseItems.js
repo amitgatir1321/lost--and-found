@@ -4,15 +4,12 @@ import {
   Box,
   Typography,
   Grid,
-  Card,
   CardContent,
   CardMedia,
   Chip,
   TextField,
   MenuItem,
-  Button,
   Alert,
-  CardActions,
   Tab,
   Tabs,
   InputAdornment,
@@ -24,81 +21,105 @@ import {
   Skeleton,
   Avatar,
   Divider,
-  Badge
+  Badge,
+  Button
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, addDoc, getDoc, doc } from 'firebase/firestore';
+import {
+  Search as SearchIcon,
+  Report as ReportIcon,
+  CheckCircle as CheckCircleIcon,
+  FindInPage as FindInPageIcon,
+  Category as CategoryIcon,
+  LocationOn as LocationOnIcon,
+  AccessTime as AccessTimeIcon,
+  Inventory as InventoryIcon
+} from '@mui/icons-material';
+import UIButton from '../components/UI/Button';
+import UICard from '../components/UI/Card';
 import { db } from '../firebase/config';
+import { collection, getDocs, addDoc, getDoc, doc, serverTimestamp, where, query } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CategoryIcon from '@mui/icons-material/Category';
-import SearchIcon from '@mui/icons-material/Search';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PersonIcon from '@mui/icons-material/Person';
-import FindInPageIcon from '@mui/icons-material/FindInPage';
-import ReportIcon from '@mui/icons-material/Report';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import InventoryIcon from '@mui/icons-material/Inventory';
 
 const BrowseItems = () => {
   const [lostItems, setLostItems] = useState([]);
   const [foundItems, setFoundItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [indexError, setIndexError] = useState(null);
   const [openClaimDialog, setOpenClaimDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [claimMessage, setClaimMessage] = useState('');
   const [claimSuccess, setClaimSuccess] = useState(false);
-  const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
 
-  const categories = [
-    'all',
-    'Electronics',
-    'Documents',
-    'Jewelry',
-    'Clothing',
-    'Bags',
-    'Keys',
-    'Pets',
-    'Other'
-  ];
+  const categories = ['all', 'electronics', 'clothing', 'documents', 'keys', 'jewelry', 'bags', 'other'];
 
   useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const fetchItems = async () => {
-    try {
+    const fetchItems = async () => {
       setLoading(true);
-      const lostQuery = query(collection(db, 'lostItems'));
-      const foundQuery = query(collection(db, 'foundItems'));
+      setIndexError(null);
+      try {
+        const buildQuery = (collectionName) => {
+          const constraints = [];
+          if (filterCategory && filterCategory !== 'all') {
+            constraints.push(where('category', '==', filterCategory));
+          }
+          if (filterLocation && filterLocation !== 'all') {
+            constraints.push(where('location', '==', filterLocation));
+          }
+          if (startDate) {
+            constraints.push(where('date', '>=', startDate));
+          }
+          if (endDate) {
+            constraints.push(where('date', '<=', endDate));
+          }
 
-      const lostSnapshot = await getDocs(lostQuery);
-      const foundSnapshot = await getDocs(foundQuery);
+          // Default to ordering by date descending when possible
+          try {
+            return constraints.length > 0 ? query(collection(db, collectionName), ...constraints) : query(collection(db, collectionName));
+          } catch (err) {
+            // fallback to a plain collection read
+            return collection(db, collectionName);
+          }
+        };
 
-      setLostItems(lostSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setFoundItems(foundSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    } catch (error) {
-      console.error('Error fetching items:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const lostQ = buildQuery('lost_items');
+        const foundQ = buildQuery('found_items');
+
+        const [lostSnapshot, foundSnapshot] = await Promise.all([
+          getDocs(lostQ),
+          getDocs(foundQ)
+        ]);
+
+        const lost = lostSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const found = foundSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        setLostItems(lost);
+        setFoundItems(found);
+      } catch (error) {
+        console.error('Error fetching items:', error);
+        // Firestore will return an error if a composite index is required
+        if (error.message && error.message.toLowerCase().includes('index')) {
+          setIndexError(error.message);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItems();
+  }, [filterCategory, filterLocation, startDate, endDate]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
   const handleClaimItem = (item, itemType) => {
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
     setSelectedItem({ ...item, itemType });
     setOpenClaimDialog(true);
   };
@@ -112,16 +133,16 @@ const BrowseItems = () => {
 
       await addDoc(collection(db, 'claims'), {
         itemId: selectedItem.id,
-        itemTitle: selectedItem.title,
+        itemTitle: selectedItem.itemName || selectedItem.title || '',
         itemType: selectedItem.itemType,
         itemOwnerId: selectedItem.userId,
-        itemOwnerEmail: selectedItem.userEmail,
-        claimantId: currentUser.uid,
-        claimantEmail: currentUser.email,
-        claimantName: ownerData?.name || currentUser.email,
+        itemOwnerEmail: selectedItem.userEmail || '',
+        claimantUserId: currentUser.uid,
+        claimantEmail: currentUser.email || '',
+        claimantName: currentUser.displayName || currentUser.email || '',
         message: claimMessage,
-        status: 'pending',
-        createdAt: new Date()
+        status: 'requested',
+        createdAt: serverTimestamp()
       });
 
       setOpenClaimDialog(false);
@@ -138,6 +159,7 @@ const BrowseItems = () => {
       const categoryMatch = filterCategory === 'all' || item.category === filterCategory;
       const locationMatch = filterLocation === 'all' || item.location === filterLocation;
       const searchMatch = searchQuery === '' || 
+        item.itemName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description?.toLowerCase().includes(searchQuery.toLowerCase());
       return categoryMatch && locationMatch && searchMatch;
@@ -149,9 +171,15 @@ const BrowseItems = () => {
 
   const locations = Array.from(new Set([...lostItems, ...foundItems].map(item => item.location).filter(Boolean)));
 
+  const renderSkeletonCard = () => (
+    <Grid item xs={12} sm={6} md={4}>
+      <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+    </Grid>
+  );
+
   const renderItemCard = (item, itemType) => (
     <Grid item xs={12} sm={6} md={4} key={item.id}>
-      <Card
+      <UICard
         sx={{
           height: '100%',
           display: 'flex',
@@ -181,12 +209,12 @@ const BrowseItems = () => {
           }}
         />
         
-        {item.imageUrl ? (
+        {item.imageURL ? (
           <CardMedia
             component="img"
             height="220"
-            image={item.imageUrl}
-            alt={item.title}
+            image={item.imageURL}
+            alt={item.itemName || item.title}
             sx={{ 
               objectFit: 'cover',
               backgroundColor: '#f5f5f5'
@@ -231,7 +259,7 @@ const BrowseItems = () => {
               WebkitBoxOrient: 'vertical'
             }}
           >
-            {item.title}
+            {item.itemName || item.title}
           </Typography>
           
           <Typography 
@@ -289,8 +317,8 @@ const BrowseItems = () => {
           </Box>
         </CardContent>
         
-        <CardActions sx={{ p: 2, pt: 0 }}>
-          <Button
+        <Box sx={{ p: 2, pt: 0 }}>
+          <UIButton
             fullWidth
             variant="contained"
             onClick={() => handleClaimItem(item, itemType)}
@@ -307,473 +335,354 @@ const BrowseItems = () => {
             }}
           >
             {itemType === 'lost' ? '✓ I Found This' : '✓ This is Mine'}
-          </Button>
-        </CardActions>
-      </Card>
-    </Grid>
-  );
-
-  const renderSkeletonCard = () => (
-    <Grid item xs={12} sm={6} md={4}>
-      <Card sx={{ height: '100%' }}>
-        <Skeleton variant="rectangular" height={220} />
-        <CardContent>
-          <Skeleton variant="text" height={32} />
-          <Skeleton variant="text" height={20} />
-          <Skeleton variant="text" height={20} width="60%" />
-        </CardContent>
-      </Card>
+          </UIButton>
+        </Box>
+      </UICard>
     </Grid>
   );
 
   return (
-    <Box sx={{ backgroundColor: '#F0F5F6', minHeight: '100vh' }}>
-      {/* Hero Section */}
-      <Box
-        sx={{
-          position: 'relative',
-          color: 'white',
-          py: { xs: 4, md: 6 },
-          mb: 4,
-          minHeight: { xs: '400px', md: '450px' },
-          backgroundImage: 'url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=2000")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(135deg, rgba(65, 74, 55, 0.88) 0%, rgba(85, 97, 71, 0.82) 100%)',
-            backdropFilter: 'blur(2px)',
-            zIndex: 1
-          }
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {indexError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Firestore index required for this combination of filters. Create the index as suggested in the Firebase console. ({indexError})
+        </Alert>
+      )}
+      {claimSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Claim submitted successfully! The owner will be notified.
+        </Alert>
+      )}
+
+      {/* Filter Section */}
+      <Paper 
+        sx={{ 
+          mb: 4, 
+          p: 3, 
+          borderRadius: 2,
+          backgroundColor: '#FFFFFF'
         }}
       >
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography 
-              variant="h2" 
-              fontWeight="bold" 
-              gutterBottom
-              sx={{ 
-                fontSize: { xs: '2rem', md: '3rem' }
-              }}
-            >
-              Browse Lost & Found Items
-            </Typography>
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                mb: 4, 
-                opacity: 0.95,
-                fontSize: { xs: '1rem', md: '1.25rem' }
-              }}
-            >
-              Search through lost and found items in your area
-            </Typography>
-            
-            {/* Stats Cards */}
-            <Grid container spacing={3} sx={{ mt: 2 }}>
-              <Grid item xs={12} sm={4}>
-                <Paper 
-                  sx={{ 
-                    p: 3, 
-                    textAlign: 'center',
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)' }
-                  }}
-                >
-                  <ReportIcon sx={{ fontSize: 40, color: '#414A37', mb: 1 }} />
-                  <Typography variant="h3" fontWeight="bold" color="#414A37">
-                    {lostItems.length}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    Lost Items
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Paper 
-                  sx={{ 
-                    p: 3, 
-                    textAlign: 'center',
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)' }
-                  }}
-                >
-                  <CheckCircleIcon sx={{ fontSize: 40, color: '#2E7D32', mb: 1 }} />
-                  <Typography variant="h3" fontWeight="bold" color="#2E7D32">
-                    {foundItems.length}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    Found Items
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Paper 
-                  sx={{ 
-                    p: 3, 
-                    textAlign: 'center',
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)' }
-                  }}
-                >
-                  <TrendingUpIcon sx={{ fontSize: 40, color: '#99744A', mb: 1 }} />
-                  <Typography variant="h3" fontWeight="bold" color="#99744A">
-                    {lostItems.length + foundItems.length}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    Total Items
-                  </Typography>
-                </Paper>
-              </Grid>
-            </Grid>
-          </Box>
-        </Container>
-      </Box>
-
-      <Container maxWidth="lg" sx={{ pb: 6 }}>
-        {claimSuccess && (
-          <Alert 
-            severity="success" 
-            sx={{ 
-              mb: 3,
-              borderRadius: 2,
-              '& .MuiAlert-icon': {
-                fontSize: 28
-              }
-            }}
-          >
-            <Typography fontWeight="bold">Claim submitted successfully!</Typography>
-            <Typography variant="body2">The owner will be notified about your claim.</Typography>
-          </Alert>
-        )}
-
-        {/* Filters Section */}
-        <Paper 
-          elevation={1}
-          sx={{ 
-            mb: 4, 
-            p: 3, 
-            borderRadius: 2,
-            backgroundColor: '#FFFFFF'
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5 }}>
-            <SearchIcon sx={{ mr: 1, color: '#414A37' }} />
-            <Typography variant="h6" fontWeight="bold" color="#414A37">
-              Filter & Search
-            </Typography>
-          </Box>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Search items"
-                variant="outlined"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type to search..."
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#414A37',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
-                select
-                label="Category"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#414A37',
-                    },
-                  },
-                }}
-              >
-                {categories.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
-                select
-                label="Location"
-                value={filterLocation}
-                onChange={(e) => setFilterLocation(e.target.value)}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#414A37',
-                    },
-                  },
-                }}
-              >
-                <MenuItem value="all">All Locations</MenuItem>
-                {locations.map((location) => (
-                  <MenuItem key={location} value={location}>
-                    {location}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {/* Tabs Section */}
-        <Paper sx={{ borderRadius: 2, mb: 3, overflow: 'hidden' }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange}
-            variant="fullWidth"
-            sx={{
-              backgroundColor: '#ffffff',
-              '& .MuiTab-root': {
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                py: 2,
-                transition: 'all 0.3s',
-              },
-              '& .Mui-selected': {
-                color: '#414A37',
-              },
-              '& .MuiTabs-indicator': {
-                backgroundColor: '#414A37',
-                height: 3,
-              }
-            }}
-          >
-            <Tab 
-              icon={<ReportIcon />} 
-              iconPosition="start"
-              label={`Lost Items (${filteredLostItems.length})`} 
-            />
-            <Tab 
-              icon={<CheckCircleIcon />} 
-              iconPosition="start"
-              label={`Found Items (${filteredFoundItems.length})`} 
-            />
-          </Tabs>
-        </Paper>
-
-        {/* Items Grid */}
-        {loading ? (
-          <Grid container spacing={3}>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <React.Fragment key={i}>{renderSkeletonCard()}</React.Fragment>
-            ))}
-          </Grid>
-        ) : (
-          <>
-            {tabValue === 0 && (
-              <Grid container spacing={3}>
-                {filteredLostItems.length === 0 ? (
-                  <Grid item xs={12}>
-                    <Paper 
-                      elevation={0}
-                      sx={{ 
-                        textAlign: 'center', 
-                        py: 10,
-                        backgroundColor: 'white',
-                        borderRadius: 3,
-                        border: '2px dashed #e0e0e0'
-                      }}
-                    >
-                      <FindInPageIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
-                      <Typography variant="h5" fontWeight="bold" color="text.secondary" gutterBottom>
-                        No Lost Items Found
-                      </Typography>
-                      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                        Try adjusting your filters or search query
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        onClick={() => {
-                          setSearchQuery('');
-                          setFilterCategory('all');
-                          setFilterLocation('all');
-                        }}
-                        sx={{
-                          borderColor: '#414A37',
-                          color: '#414A37',
-                          '&:hover': {
-                            borderColor: '#99744A',
-                            backgroundColor: 'rgba(65, 74, 55, 0.04)'
-                          }
-                        }}
-                      >
-                        Clear Filters
-                      </Button>
-                    </Paper>
-                  </Grid>
-                ) : (
-                  filteredLostItems.map((item) => renderItemCard(item, 'lost'))
-                )}
-              </Grid>
-            )}
-
-            {tabValue === 1 && (
-              <Grid container spacing={3}>
-                {filteredFoundItems.length === 0 ? (
-                  <Grid item xs={12}>
-                    <Paper 
-                      elevation={0}
-                      sx={{ 
-                        textAlign: 'center', 
-                        py: 10,
-                        backgroundColor: 'white',
-                        borderRadius: 3,
-                        border: '2px dashed #e0e0e0'
-                      }}
-                    >
-                      <FindInPageIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
-                      <Typography variant="h5" fontWeight="bold" color="text.secondary" gutterBottom>
-                        No Found Items
-                      </Typography>
-                      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                        Try adjusting your filters or search query
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        onClick={() => {
-                          setSearchQuery('');
-                          setFilterCategory('all');
-                          setFilterLocation('all');
-                        }}
-                        sx={{
-                          borderColor: '#414A37',
-                          color: '#414A37',
-                          '&:hover': {
-                            borderColor: '#99744A',
-                            backgroundColor: 'rgba(65, 74, 55, 0.04)'
-                          }
-                        }}
-                      >
-                        Clear Filters
-                      </Button>
-                    </Paper>
-                  </Grid>
-                ) : (
-                  filteredFoundItems.map((item) => renderItemCard(item, 'found'))
-                )}
-              </Grid>
-            )}
-          </>
-        )}
-
-        {/* Claim Dialog */}
-        <Dialog 
-          open={openClaimDialog} 
-          onClose={() => setOpenClaimDialog(false)} 
-          maxWidth="sm" 
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
-            }
-          }}
-        >
-          <DialogTitle sx={{ pb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CheckCircleIcon sx={{ color: '#414A37' }} />
-              <Typography variant="h6" fontWeight="bold">
-                Claim Item
-              </Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {selectedItem?.title}
-            </Typography>
-          </DialogTitle>
-          <Divider />
-          <DialogContent sx={{ pt: 3 }}>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Please provide detailed information to help verify your claim.
-            </Alert>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5 }}>
+          <SearchIcon sx={{ mr: 1, color: '#414A37' }} />
+          <Typography variant="h6" fontWeight="bold" color="#414A37">
+            Filter & Search
+          </Typography>
+        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              multiline
-              rows={5}
-              label="Your Message"
-              value={claimMessage}
-              onChange={(e) => setClaimMessage(e.target.value)}
-              placeholder="Describe the item, where you found it, or provide proof of ownership..."
+              label="Search items"
+              variant="outlined"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Type to search..."
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': {
                     borderColor: '#414A37',
                   },
-                  '&.Mui-focused fieldset': {
+                },
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              select
+              label="Category"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
                     borderColor: '#414A37',
                   },
                 },
               }}
+            >
+              {categories.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              select
+              label="Location"
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+              sx={{}}
+            >
+              <MenuItem value="all">All Locations</MenuItem>
+              {locations.map((location) => (
+                <MenuItem key={location} value={location}>
+                  {location}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
             />
-          </DialogContent>
-          <DialogActions sx={{ p: 3, pt: 2 }}>
-            <Button 
-              onClick={() => setOpenClaimDialog(false)}
-              sx={{ 
-                color: '#666',
-                '&:hover': {
-                  backgroundColor: 'rgba(0,0,0,0.04)'
-                }
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={submitClaim} 
-              variant="contained"
-              disabled={!claimMessage.trim()}
-              sx={{
-                backgroundColor: '#414A37',
-                px: 4,
-                py: 1,
-                fontWeight: 'bold',
-                '&:hover': { 
-                  backgroundColor: '#556147',
-                  transform: 'scale(1.02)'
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Tabs Section */}
+      <Paper sx={{ borderRadius: 2, mb: 3, overflow: 'hidden' }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            backgroundColor: '#ffffff',
+            '& .MuiTab-root': {
+              fontWeight: 'bold',
+              fontSize: '1rem',
+              py: 2,
+              transition: 'all 0.3s',
+            },
+            '& .Mui-selected': {
+              color: '#414A37',
+            },
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#414A37',
+              height: 3,
+            }
+          }}
+        >
+          <Tab 
+            icon={<ReportIcon />} 
+            iconPosition="start"
+            label={`Lost Items (${filteredLostItems.length})`} 
+          />
+          <Tab 
+            icon={<CheckCircleIcon />} 
+            iconPosition="start"
+            label={`Found Items (${filteredFoundItems.length})`} 
+          />
+        </Tabs>
+      </Paper>
+
+      {/* Items Grid */}
+      {loading ? (
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <React.Fragment key={i}>{renderSkeletonCard()}</React.Fragment>
+          ))}
+        </Grid>
+      ) : (
+        <>
+          {tabValue === 0 && (
+            <Grid container spacing={3}>
+              {filteredLostItems.length === 0 ? (
+                <Grid item xs={12}>
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      textAlign: 'center', 
+                      py: 10,
+                      backgroundColor: 'white',
+                      borderRadius: 3,
+                      border: '2px dashed #e0e0e0'
+                    }}
+                  >
+                    <FindInPageIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
+                    <Typography variant="h5" fontWeight="bold" color="text.secondary" gutterBottom>
+                      No Lost Items Found
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                      Try adjusting your filters or search query
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilterCategory('all');
+                        setFilterLocation('all');
+                      }}
+                      sx={{
+                        borderColor: '#414A37',
+                        color: '#414A37',
+                        '&:hover': {
+                          borderColor: '#99744A',
+                          backgroundColor: 'rgba(65, 74, 55, 0.04)'
+                        }
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </Paper>
+                </Grid>
+              ) : (
+                filteredLostItems.map((item) => renderItemCard(item, 'lost'))
+              )}
+            </Grid>
+          )}
+
+          {tabValue === 1 && (
+            <Grid container spacing={3}>
+              {filteredFoundItems.length === 0 ? (
+                <Grid item xs={12}>
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      textAlign: 'center', 
+                      py: 10,
+                      backgroundColor: 'white',
+                      borderRadius: 3,
+                      border: '2px dashed #e0e0e0'
+                    }}
+                  >
+                    <FindInPageIcon sx={{ fontSize: 80, color: '#ccc', mb: 2 }} />
+                    <Typography variant="h5" fontWeight="bold" color="text.secondary" gutterBottom>
+                      No Found Items
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                      Try adjusting your filters or search query
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilterCategory('all');
+                        setFilterLocation('all');
+                      }}
+                      sx={{
+                        borderColor: '#414A37',
+                        color: '#414A37',
+                        '&:hover': {
+                          borderColor: '#99744A',
+                          backgroundColor: 'rgba(65, 74, 55, 0.04)'
+                        }
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </Paper>
+                </Grid>
+              ) : (
+                filteredFoundItems.map((item) => renderItemCard(item, 'found'))
+              )}
+            </Grid>
+          )}
+        </>
+      )}
+
+      {/* Claim Dialog */}
+      <Dialog 
+        open={openClaimDialog} 
+        onClose={() => setOpenClaimDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CheckCircleIcon sx={{ color: '#414A37' }} />
+            <Typography variant="h6" fontWeight="bold">
+              Claim Item
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {selectedItem?.title}
+          </Typography>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 3 }}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Please provide detailed information to help verify your claim.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={5}
+            label="Your Message"
+            value={claimMessage}
+            onChange={(e) => setClaimMessage(e.target.value)}
+            placeholder="Describe the item, where you found it, or provide proof of ownership..."
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': {
+                  borderColor: '#414A37',
                 },
-                '&:disabled': {
-                  backgroundColor: '#ccc'
+                '&.Mui-focused fieldset': {
+                  borderColor: '#414A37',
                 },
-                transition: 'all 0.2s'
-              }}
-            >
-              Submit Claim
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </Box>
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <UIButton 
+            onClick={() => setOpenClaimDialog(false)}
+            variant="text"
+            sx={{ 
+              color: '#666',
+              '&:hover': {
+                backgroundColor: 'rgba(0,0,0,0.04)'
+              }
+            }}
+          >
+            Cancel
+          </UIButton>
+          <UIButton 
+            onClick={submitClaim} 
+            variant="contained"
+            disabled={!claimMessage.trim()}
+            sx={{
+              backgroundColor: '#414A37',
+              px: 4,
+              py: 1,
+              fontWeight: 'bold',
+              '&:hover': { 
+                backgroundColor: '#556147',
+                transform: 'scale(1.02)'
+              },
+              '&:disabled': {
+                backgroundColor: '#ccc'
+              },
+              transition: 'all 0.2s'
+            }}
+          >
+            Submit Claim
+          </UIButton>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

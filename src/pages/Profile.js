@@ -14,7 +14,13 @@ import {
   CardContent,
   IconButton,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert
 } from '@mui/material';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +28,6 @@ import { db } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
@@ -30,9 +35,12 @@ import FindInPageIcon from '@mui/icons-material/FindInPage';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EditIcon from '@mui/icons-material/Edit';
+import LockIcon from '@mui/icons-material/Lock';
+import CloseIcon from '@mui/icons-material/Close';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const Profile = () => {
-  const { currentUser, userRole } = useAuth();
+  const { currentUser, userRole, updateUserProfile, updateUserPassword } = useAuth();
   const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState({
     lostItems: 0,
@@ -43,6 +51,23 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // 🔐 Edit Profile Dialog State
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState(false);
+
+  // 🔐 Change Password Dialog State
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
+
   useEffect(() => {
     const loadProfile = async () => {
       if (!currentUser) return;
@@ -52,17 +77,16 @@ const Profile = () => {
         const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
         if (userSnap.exists()) {
           setProfile(userSnap.data());
+          setEditName(userSnap.data().name || '');
         }
 
         // Load user statistics
-        const lostQuery = query(collection(db, 'lostItems'), where('userId', '==', currentUser.uid));
-        const foundQuery = query(collection(db, 'foundItems'), where('userId', '==', currentUser.uid));
-        const claimsQuery = query(collection(db, 'claims'), where('claimantId', '==', currentUser.uid));
+        const lostQuery = query(collection(db, 'lost_items'), where('userId', '==', currentUser.uid));
+        const foundQuery = query(collection(db, 'found_items'), where('userId', '==', currentUser.uid));
 
-        const [lostSnap, foundSnap, claimsSnap] = await Promise.all([
+        const [lostSnap, foundSnap] = await Promise.all([
           getDocs(lostQuery),
-          getDocs(foundQuery),
-          getDocs(claimsQuery)
+          getDocs(foundQuery)
         ]);
 
         const lostItems = lostSnap.docs.map(doc => doc.data());
@@ -75,7 +99,7 @@ const Profile = () => {
         setStats({
           lostItems: lostItems.length,
           foundItems: foundItems.length,
-          totalClaims: claimsSnap.size,
+          totalClaims: lostItems.length + foundItems.length,
           resolvedItems: resolvedCount
         });
       } catch (error) {
@@ -123,6 +147,82 @@ const Profile = () => {
         <CircularProgress size={60} sx={{ color: '#414A37' }} />
       </Box>
     );
+  }
+
+  // ✅ Handle Edit Profile Submit
+  const handleEditProfileSubmit = async () => {
+    setEditError('');
+    setEditSuccess(false);
+
+    if (!editName.trim()) {
+      setEditError('Name cannot be empty');
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      await updateUserProfile(editName.trim());
+      setProfile({ ...profile, name: editName.trim() });
+      setEditSuccess(true);
+      setTimeout(() => {
+        setEditDialogOpen(false);
+        setEditSuccess(false);
+      }, 1500);
+    } catch (error) {
+      setEditError(error.message || 'Failed to update profile');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // ✅ Handle Change Password Submit
+  const handleChangePasswordSubmit = async () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    // Validation
+    if (!newPassword.trim()) {
+      setPasswordError('New password cannot be empty');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      setPasswordError('New password must be different from current password');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await updateUserPassword(newPassword);
+      setPasswordSuccess(true);
+      setTimeout(() => {
+        setPasswordDialogOpen(false);
+        setPasswordSuccess(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setShowPasswords(false);
+      }, 1500);
+    } catch (error) {
+      // Firebase reauthentication errors
+      if (error.code === 'auth/requires-recent-login') {
+        setPasswordError('Please log out and log in again before changing your password');
+      } else {
+        setPasswordError(error.message || 'Failed to update password');
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
   }
 
   const memberDays = profile?.createdAt 
@@ -201,6 +301,7 @@ const Profile = () => {
                     color: 'white',
                     '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
                   }}
+                  onClick={() => setEditDialogOpen(true)}
                 >
                   <EditIcon />
                 </IconButton>
@@ -363,13 +464,13 @@ const Profile = () => {
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <LocationOnIcon sx={{ mr: 1.5, color: '#414A37' }} />
-                <Box>
+                <EmailIcon sx={{ mr: 1.5, color: '#414A37' }} />
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Area
+                    Email (Cannot change)
                   </Typography>
-                  <Typography variant="body1" fontWeight="medium">
-                    {profile?.area || 'Not specified'}
+                  <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-all' }}>
+                    {currentUser.email}
                   </Typography>
                 </Box>
               </Box>
@@ -419,23 +520,249 @@ const Profile = () => {
                   bgcolor: 'rgba(65, 74, 55, 0.04)'
                 } 
               }}
-              onClick={() => navigate('/my-claims')}
+              onClick={() => setPasswordDialogOpen(true)}
+              startIcon={<LockIcon />}
             >
-              View My Claims
+              Change Password
             </Button>
             <Button 
               fullWidth 
               variant="contained" 
               sx={{ 
+                mb: 1,
                 bgcolor: '#414A37', 
                 '&:hover': { bgcolor: '#99744A' } 
               }}
+              onClick={() => navigate('/my-items')}
             >
-              Edit Profile
+              View My Items
             </Button>
+            {userRole === 'admin' && (
+              <Button 
+                fullWidth 
+                variant="contained" 
+                sx={{ 
+                  bgcolor: '#f57c00', 
+                  '&:hover': { bgcolor: '#e65100' } 
+                }}
+                onClick={() => navigate('/admin')}
+              >
+                Admin Dashboard
+              </Button>
+            )}
           </Paper>
         </Grid>
       </Grid>
+
+      {/* 🔐 EDIT PROFILE DIALOG */}
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" fontWeight="bold">Edit Profile</Typography>
+            <IconButton onClick={() => setEditDialogOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 3 }}>
+          {editError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setEditError('')}>
+              {editError}
+            </Alert>
+          )}
+          {editSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }} icon={<CheckCircleIcon />}>
+              Profile updated successfully!
+            </Alert>
+          )}
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 'bold' }}>
+              📝 Full Name
+            </Typography>
+            <TextField
+              fullWidth
+              label="Your Name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Enter your full name"
+              variant="outlined"
+              disabled={editLoading}
+            />
+          </Box>
+
+          <Box sx={{ p: 2, bgcolor: '#F5F5F5', borderRadius: 1, mb: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              ℹ️ <strong>Note:</strong> The following cannot be changed:
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              • Email address
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              • Account role (Admin status)
+            </Typography>
+          </Box>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => setEditDialogOpen(false)}
+            disabled={editLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleEditProfileSubmit}
+            variant="contained"
+            sx={{ bgcolor: '#414A37', '&:hover': { bgcolor: '#99744A' } }}
+            disabled={editLoading}
+          >
+            {editLoading ? <CircularProgress size={24} /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🔐 CHANGE PASSWORD DIALOG */}
+      <Dialog 
+        open={passwordDialogOpen} 
+        onClose={() => setPasswordDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" fontWeight="bold">🔒 Change Password</Typography>
+            <IconButton onClick={() => setPasswordDialogOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 3 }}>
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPasswordError('')}>
+              {passwordError}
+            </Alert>
+          )}
+          {passwordSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }} icon={<CheckCircleIcon />}>
+              Password changed successfully!
+            </Alert>
+          )}
+
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Current Password
+            </Typography>
+            <TextField
+              fullWidth
+              type={showPasswords ? 'text' : 'password'}
+              label="Current Password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Enter current password"
+              variant="outlined"
+              disabled={passwordLoading}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              ⓘ For security, you may need to log in again after changing your password.
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 'bold' }}>
+              New Password
+            </Typography>
+            <TextField
+              fullWidth
+              type={showPasswords ? 'text' : 'password'}
+              label="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password (min 6 characters)"
+              variant="outlined"
+              disabled={passwordLoading}
+              helperText={newPassword && newPassword.length < 6 ? 'Password must be at least 6 characters' : ''}
+              error={newPassword && newPassword.length < 6}
+            />
+          </Box>
+
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Confirm Password
+            </Typography>
+            <TextField
+              fullWidth
+              type={showPasswords ? 'text' : 'password'}
+              label="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter new password"
+              variant="outlined"
+              disabled={passwordLoading}
+              helperText={confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match' : ''}
+              error={confirmPassword && newPassword !== confirmPassword}
+            />
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => setShowPasswords(!showPasswords)}
+              disabled={passwordLoading}
+            >
+              {showPasswords ? '👁️ Hide' : '👁️ Show'} Passwords
+            </Button>
+          </Box>
+
+          <Box sx={{ p: 2, bgcolor: '#FFF3E0', borderRadius: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+              ⚠️ Security Reminder:
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              • Use a strong password with mix of letters, numbers, and symbols
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              • Never share your password with anyone
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              • Use a unique password for this account
+            </Typography>
+          </Box>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => {
+              setPasswordDialogOpen(false);
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+              setShowPasswords(false);
+              setPasswordError('');
+              setPasswordSuccess(false);
+            }}
+            disabled={passwordLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleChangePasswordSubmit}
+            variant="contained"
+            sx={{ bgcolor: '#414A37', '&:hover': { bgcolor: '#99744A' } }}
+            disabled={passwordLoading || !newPassword || !confirmPassword}
+          >
+            {passwordLoading ? <CircularProgress size={24} /> : 'Update Password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

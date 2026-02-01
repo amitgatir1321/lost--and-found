@@ -52,8 +52,8 @@ const MyClaims = () => {
 
   const fetchData = async () => {
     // Fetch my lost items
-    const lostQuery = query(collection(db, 'lostItems'), where('userId', '==', currentUser.uid));
-    const foundQuery = query(collection(db, 'foundItems'), where('userId', '==', currentUser.uid));
+    const lostQuery = query(collection(db, 'lost_items'), where('userId', '==', currentUser.uid));
+    const foundQuery = query(collection(db, 'found_items'), where('userId', '==', currentUser.uid));
     
     const lostSnap = await getDocs(lostQuery);
     const foundSnap = await getDocs(foundQuery);
@@ -71,11 +71,11 @@ const MyClaims = () => {
     setReceivedClaims(received);
     
     // Count pending claims
-    const pendingCount = received.filter(claim => claim.status === 'pending').length;
+    const pendingCount = received.filter(claim => claim.status === 'requested').length;
     setNewClaimsCount(pendingCount);
 
     // Fetch claims I made
-    const myClaimsQuery = query(collection(db, 'claims'), where('claimantId', '==', currentUser.uid));
+    const myClaimsQuery = query(collection(db, 'claims'), where('claimantUserId', '==', currentUser.uid));
     const myClaimsSnap = await getDocs(myClaimsQuery);
     setMyClaims(myClaimsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   };
@@ -187,9 +187,9 @@ const MyClaims = () => {
             receivedClaims.map((claim) => (
               <Grid item xs={12} key={claim.id}>
                 <Card 
-                  elevation={claim.status === 'pending' ? 4 : 2}
+                  elevation={claim.status === 'requested' ? 4 : 2}
                   sx={{
-                    border: claim.status === 'pending' ? '2px solid #ff9800' : 'none',
+                    border: claim.status === 'requested' ? '2px solid #ff9800' : 'none',
                     transition: 'all 0.3s',
                     '&:hover': {
                       transform: 'translateY(-2px)',
@@ -202,13 +202,13 @@ const MyClaims = () => {
                       <Grid item xs={12} md={1}>
                         <Avatar 
                           sx={{ 
-                            bgcolor: claim.status === 'pending' ? '#ff9800' : 
-                                    claim.status === 'approved' ? '#2e7d32' : '#d32f2f',
+                                bgcolor: claim.status === 'requested' ? '#ff9800' : 
+                                  claim.status === 'approved' ? '#2e7d32' : '#d32f2f',
                             width: 56,
                             height: 56
                           }}
                         >
-                          {claim.status === 'pending' ? <PendingIcon /> : 
+                          {claim.status === 'requested' ? <PendingIcon /> : 
                            claim.status === 'approved' ? <CheckCircleIcon /> : <CancelIcon />}
                         </Avatar>
                       </Grid>
@@ -232,7 +232,7 @@ const MyClaims = () => {
                           color={claim.status === 'approved' ? 'success' : claim.status === 'pending' ? 'warning' : 'error'}
                           sx={{ mb: 1 }}
                         />
-                        {claim.status === 'pending' && (
+                        {claim.status === 'requested' && (
                           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                             <Button
                               variant="contained"

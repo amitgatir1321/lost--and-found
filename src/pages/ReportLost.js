@@ -1,610 +1,669 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Container,
   Box,
-  TextField,
-  Button,
   Typography,
+  TextField,
+  MenuItem,
+  Grid,
   Paper,
   Alert,
-  MenuItem,
-  CircularProgress,
-  Grid,
+  Divider,
+  InputAdornment,
+  FormControl,
+  FormHelperText,
   Card,
   CardContent,
+  Stack,
   IconButton,
-  Tooltip
+  CircularProgress
 } from '@mui/material';
-import ReportIcon from '@mui/icons-material/Report';
-import CategoryIcon from '@mui/icons-material/Category';
+import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import ImageIcon from '@mui/icons-material/Image';
+import CategoryIcon from '@mui/icons-material/Category';
 import DescriptionIcon from '@mui/icons-material/Description';
-import MyLocationIcon from '@mui/icons-material/MyLocation';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { useAuth } from '../contexts/AuthContext';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import UIButton from '../components/UI/Button';
 import { useNavigate } from 'react-router-dom';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
 
 const ReportLost = () => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: '',
-    location: '',
-    dateLost: '',
-    coordinates: null
-  });
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState('');
-  const [gettingLocation, setGettingLocation] = useState(false);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+
+  const [formData, setFormData] = useState({
+    itemName: '',
+    category: '',
+    lastSeenLocation: '',
+    dateLost: '',
+    description: '',
+    whatsappNumber: '',
+    contactEmail: currentUser?.email || '',
+    reward: ''
+  });
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [errors, setErrors] = useState({});
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const categories = [
     'Electronics',
     'Documents',
     'Jewelry',
     'Clothing',
-    'Bags',
-    'Keys',
-    'Pets',
+    'Bags & Wallets',
+    'Keys & Access Cards',
+    'Pets & Animals',
+    'Books & Stationery',
+    'Toys & Games',
     'Other'
   ];
 
-  const locations = [
-    'Downtown',
-    'Uptown',
-    'East Side',
-    'West Side',
-    'North District',
-    'South District',
-    'Central',
-    'Suburbs',
-    'Park',
-    'Mall',
-    'Train Station',
-    'Bus Stop',
-    'Restaurant',
-    'School',
-    'Office Building'
-  ];
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setGettingLocation(true);
-    setError('');
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        
-        try {
-          // Reverse geocoding using OpenStreetMap Nominatim (Free, no API key needed)
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-            {
-              headers: {
-                'User-Agent': 'LostAndFoundApp/1.0'
-              }
-            }
-          );
-          const data = await response.json();
-          
-          let locationName = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-          
-          if (data && data.display_name) {
-            locationName = data.display_name;
-          }
-          
-          setFormData({
-            ...formData,
-            location: locationName,
-            coordinates: { latitude, longitude }
-          });
-          setGettingLocation(false);
-        } catch (error) {
-          console.error('Error getting address:', error);
-          // Fallback to coordinates
-          setFormData({
-            ...formData,
-            location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-            coordinates: { latitude, longitude }
-          });
-          setGettingLocation(false);
-        }
-      },
-      (error) => {
-        setError('Unable to get your location. Please enter manually.');
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
-
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: '' });
+    }
   };
 
   const handleImageChange = (e) => {
-    if (e.target.files[0]) {
-      const file = e.target.files[0];
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setErrors({ ...errors, image: 'Please upload JPEG, JPG, PNG or WebP image' });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors({ ...errors, image: 'Image size should be less than 5MB' });
+      return;
+    }
+
+    setImageFile(file);
+    setErrors({ ...errors, image: '' });
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.itemName.trim()) {
+      newErrors.itemName = 'Item name is required';
+    }
+
+    if (!formData.category) {
+      newErrors.category = 'Please select a category';
+    }
+
+    if (!formData.lastSeenLocation.trim()) {
+      newErrors.lastSeenLocation = 'Last seen location is required';
+    }
+
+    if (!formData.dateLost) {
+      newErrors.dateLost = 'Date lost is required';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description should be at least 10 characters';
+    }
+
+    if (!formData.whatsappNumber.trim()) {
+      newErrors.whatsappNumber = 'WhatsApp number is required';
+    } else if (!/^[6-9]\d{9}$/.test(formData.whatsappNumber)) {
+      newErrors.whatsappNumber = 'Enter a valid 10-digit Indian mobile number';
+    }
+
+    // Image validation
+    if (!imageFile) {
+      newErrors.image = 'Please upload an image of the lost item';
+    }
+
+    return newErrors;
+  };
+
+  const uploadImageToStorage = async (file) => {
+    if (!file) return null;
+
+    const timestamp = Date.now();
+    const fileName = `lost_items/${currentUser.uid}_${timestamp}_${file.name}`;
+    const storageRef = ref(storage, fileName);
+
+    // Create upload task
+    const uploadTask = uploadBytes(storageRef, file);
+    
+    // Simulate progress
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 100);
+
+    try {
+      const snapshot = await uploadTask;
+      clearInterval(interval);
+      setUploadProgress(100);
       
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please upload an image file');
-        return;
-      }
-      
-      // Validate file size (max 2MB for base64 storage)
-      if (file.size > 2 * 1024 * 1024) {
-        setError('Image size should be less than 2MB');
-        return;
-      }
-      
-      setImage(file);
-      setError('');
-      
-      // Create preview and compress image
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
-          // Compress image
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxSize = 800; // Max width/height
-          
-          if (width > height && width > maxSize) {
-            height = (height * maxSize) / width;
-            width = maxSize;
-          } else if (height > maxSize) {
-            width = (width * maxSize) / height;
-            height = maxSize;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Convert to base64 with compression
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          setImagePreview(compressedBase64);
-        };
-        img.src = reader.result;
-      };
-      reader.readAsDataURL(file);
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      return downloadURL;
+    } catch (error) {
+      clearInterval(interval);
+      console.error('Image upload error:', error);
+      throw new Error('Failed to upload image');
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    setUploadProgress('');
-    
-    // Validate image upload
-    if (!image || !imagePreview) {
-      setError('Please upload an image of the lost item');
+
+    if (!currentUser) {
+      navigate('/login');
       return;
     }
-    
-    setLoading(true);
-    console.log('Starting submission process...');
+
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
     try {
-      setUploadProgress('Processing image...');
-      console.log('Saving document to Firestore...');
-      
-      // Add document to Firestore with base64 image
-      const docRef = await addDoc(collection(db, 'lostItems'), {
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        location: formData.location,
-        dateLost: formData.dateLost,
-        coordinates: formData.coordinates || null,
-        imageUrl: imagePreview, // Store base64 image directly
+      setLoading(true);
+      setErrors({});
+      setUploadProgress(0);
+
+      // Upload image first
+      let imageUrl = null;
+      if (imageFile) {
+        imageUrl = await uploadImageToStorage(imageFile);
+        if (!imageUrl) {
+          throw new Error('Image upload failed');
+        }
+      }
+
+      // Submit form data to Firestore
+      await addDoc(collection(db, 'lost_items'), {
+        ...formData,
+        imageUrl,
         userId: currentUser.uid,
         userEmail: currentUser.email,
-        status: 'active',
-        createdAt: new Date()
+        status: 'lost',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        contactVerified: false,
+        reportType: 'lost',
+        reward: formData.reward || 'No reward mentioned'
       });
-      
-      console.log('Document created with ID:', docRef.id);
-      setSuccess('Lost item reported successfully! Redirecting...');
-      setUploadProgress('');
+
+      setSuccess(true);
       
       // Reset form
       setFormData({
-        title: '',
-        description: '',
+        itemName: '',
         category: '',
-        location: '',
+        lastSeenLocation: '',
         dateLost: '',
-        coordinates: null
+        description: '',
+        whatsappNumber: '',
+        contactEmail: currentUser.email,
+        reward: ''
       });
-      setImage(null);
+      setImageFile(null);
       setImagePreview(null);
-      setLoading(false);
-      
+      setUploadProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
       setTimeout(() => {
-        navigate('/');
-      }, 2000);
+        setSuccess(false);
+        navigate('/lost-items');
+      }, 3000);
     } catch (error) {
-      console.error('Detailed error:', error);
-      console.error('Error message:', error.message);
-      
-      setError('Failed to report item: ' + error.message);
-      setUploadProgress('');
+      console.error('Submission error:', error);
+      setErrors({ 
+        submit: error.message || 'Failed to submit report. Please try again.' 
+      });
+    } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
   return (
-    <Box>
-      {/* Hero Section */}
-      <Box
-        sx={{
-          position: 'relative',
-          color: 'white',
-          py: 6,
-          mb: 6,
-          minHeight: '250px',
-          backgroundImage: 'url("https://images.unsplash.com/photo-1494368308039-ed3393a402a4?auto=format&fit=crop&w=2000")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(135deg, rgba(211, 47, 47, 0.85) 0%, rgba(183, 28, 28, 0.75) 100%)',
-            zIndex: 1
-          }
-        }}
-      >
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <ReportIcon sx={{ fontSize: 64, mb: 2 }} />
-            <Typography variant="h2" fontWeight="bold" gutterBottom>
-              Report Lost Item
-            </Typography>
-            <Typography variant="h6" sx={{ opacity: 0.95, maxWidth: '600px', mx: 'auto' }}>
-              Help us help you find your lost item. Provide as many details as possible to increase your chances of recovery.
-            </Typography>
-          </Box>
-        </Container>
-      </Box>
-
-      {/* Form Section */}
-      <Container maxWidth="md">
-        <Box sx={{ mb: 6 }}>
-          {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
-          {uploadProgress && <Alert severity="info" sx={{ mb: 3 }}>{uploadProgress}</Alert>}
-
-          <Paper 
-            elevation={4} 
-            sx={{ 
-              p: 4,
+    <Box sx={{ 
+      backgroundColor: '#F8FAFC', 
+      minHeight: '100vh',
+      py: { xs: 4, md: 8 },
+      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
+    }}>
+      <Container maxWidth="lg">
+        <Grid container spacing={4}>
+          {/* Information Card */}
+          <Grid item xs={12} md={5}>
+            <Card sx={{ 
+              height: '100%',
               borderRadius: 3,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-            }}
-          >
+              boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              color: 'white'
+            }}>
+              <CardContent sx={{ p: 4, height: '100%' }}>
+                <Typography variant="h4" fontWeight={800} gutterBottom>
+                  Lost Something?
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 4, opacity: 0.9 }}>
+                  Report your lost item and increase your chances of recovery.
+                </Typography>
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Item Title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g., Blue iPhone 13 with cracked screen"
-                  InputProps={{
-                    startAdornment: <DescriptionIcon sx={{ mr: 1, color: 'action.active' }} />
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: '#d32f2f' },
-                      '&.Mui-focused fieldset': { borderColor: '#d32f2f' }
-                    }
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  multiline
-                  rows={4}
-                  required
-                  placeholder="Provide detailed description including color, brand, distinctive features, etc."
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: '#d32f2f' },
-                      '&.Mui-focused fieldset': { borderColor: '#d32f2f' }
-                    }
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Category"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  required
-                  InputProps={{
-                    startAdornment: <CategoryIcon sx={{ mr: 1, color: 'action.active' }} />
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: '#d32f2f' },
-                      '&.Mui-focused fieldset': { borderColor: '#d32f2f' }
-                    }
-                  }}
-                >
-                  {categories.map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Box sx={{ position: 'relative' }}>
-                  <TextField
-                    fullWidth
-                    label="Location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter location or use current location"
-                    InputProps={{
-                      startAdornment: <LocationOnIcon sx={{ mr: 1, color: 'action.active' }} />,
-                      endAdornment: (
-                        <Tooltip title="Use my current location">
-                          <IconButton 
-                            onClick={getCurrentLocation}
-                            disabled={gettingLocation}
-                            sx={{ color: '#d32f2f' }}
-                          >
-                            {gettingLocation ? (
-                              <CircularProgress size={24} />
-                            ) : (
-                              <MyLocationIcon />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                      )
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#d32f2f' },
-                        '&.Mui-focused fieldset': { borderColor: '#d32f2f' }
-                      }
-                    }}
-                  />
-                  {formData.coordinates && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                      📍 Coordinates: {formData.coordinates.latitude.toFixed(6)}, {formData.coordinates.longitude.toFixed(6)}
-                    </Typography>
-                  )}
-                </Box>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Date Lost"
-                  name="dateLost"
-                  type="date"
-                  value={formData.dateLost}
-                  onChange={handleChange}
-                  InputLabelProps={{ shrink: true }}
-                  required
-                  InputProps={{
-                    startAdornment: <CalendarTodayIcon sx={{ mr: 1, color: 'action.active' }} />
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: '#d32f2f' },
-                      '&.Mui-focused fieldset': { borderColor: '#d32f2f' }
-                    }
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Card 
-                  variant="outlined" 
-                  sx={{ 
-                    borderStyle: image ? 'solid' : 'dashed',
-                    borderWidth: 2,
-                    borderColor: image ? '#2e7d32' : '#d32f2f',
-                    backgroundColor: image ? 'rgba(46, 125, 50, 0.05)' : 'rgba(211, 47, 47, 0.02)',
-                    transition: 'all 0.3s',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6" gutterBottom color={image ? '#2e7d32' : '#d32f2f'} fontWeight={600}>
-                        <ImageIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-                        Upload Item Photo *
+                <Stack spacing={3}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CheckCircleIcon sx={{ mr: 2, fontSize: 28 }} />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        Image Required
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                        A clear photo helps others identify your lost item (Max 2MB, JPG/PNG)
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Upload a clear photo to help identify your item
                       </Typography>
-                      
-                      {imagePreview && (
-                        <Box 
-                          sx={{ 
-                            mb: 2, 
-                            position: 'relative',
-                            maxWidth: 400,
-                            mx: 'auto',
-                            borderRadius: 2,
-                            overflow: 'hidden',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                          }}
-                        >
-                          <img 
-                            src={imagePreview} 
-                            alt="Preview" 
-                            style={{ 
-                              width: '100%', 
-                              height: 'auto',
-                              maxHeight: '300px',
-                              objectFit: 'contain',
-                              display: 'block'
-                            }} 
-                          />
-                          <Button
-                            size="small"
-                            onClick={() => {
-                              setImage(null);
-                              setImagePreview(null);
-                            }}
-                            sx={{
-                              position: 'absolute',
-                              top: 8,
-                              right: 8,
-                              bgcolor: 'rgba(0,0,0,0.6)',
-                              color: 'white',
-                              minWidth: 'auto',
-                              px: 2,
-                              '&:hover': {
-                                bgcolor: 'rgba(0,0,0,0.8)'
-                              }
-                            }}
-                          >
-                            Change
-                          </Button>
-                        </Box>
-                      )}
-                      
-                      <Button
-                        variant={image ? "outlined" : "contained"}
-                        component="label"
-                        fullWidth
-                        size="large"
-                        startIcon={<ImageIcon />}
-                        sx={{
-                          py: 2,
-                          backgroundColor: image ? 'transparent' : '#d32f2f',
-                          borderColor: '#d32f2f',
-                          color: image ? '#d32f2f' : 'white',
-                          fontWeight: 600,
-                          fontSize: '1rem',
-                          '&:hover': {
-                            borderColor: '#b71c1c',
-                            backgroundColor: image ? 'rgba(211, 47, 47, 0.04)' : '#b71c1c'
-                          }
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CheckCircleIcon sx={{ mr: 2, fontSize: 28 }} />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        Quick Alerts
+                      </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Get notified when similar items are found
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CheckCircleIcon sx={{ mr: 2, fontSize: 28 }} />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        Community Help
+                      </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Our community helps track down lost items
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CheckCircleIcon sx={{ mr: 2, fontSize: 28 }} />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        Direct Contact
+                      </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Finders can contact you directly via WhatsApp
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+
+                <Divider sx={{ my: 4, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  <strong>Tips for Better Recovery:</strong>
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+                  • Upload the clearest photo you have<br />
+                  • Provide exact location details<br />
+                  • Include unique identifying marks<br />
+                  • Mention any reward amount<br />
+                  • Keep your WhatsApp active for responses
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Form Section */}
+          <Grid item xs={12} md={7}>
+            <Paper sx={{ 
+              p: { xs: 3, md: 5 }, 
+              borderRadius: 3,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
+            }}>
+              <Typography variant="h4" fontWeight={800} color="primary" gutterBottom>
+                Report Lost Item
+              </Typography>
+              <Typography color="text.secondary" sx={{ mb: 4 }}>
+                Fill in the details below to help our community find your lost item
+              </Typography>
+
+              {errors.submit && (
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setErrors({...errors, submit: ''})}>
+                  {errors.submit}
+                </Alert>
+              )}
+
+              {success && (
+                <Alert 
+                  severity="success" 
+                  sx={{ mb: 3 }}
+                  icon={<CheckCircleIcon fontSize="inherit" />}
+                >
+                  Lost item reported successfully! Redirecting...
+                </Alert>
+              )}
+
+              <Box component="form" onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Item Name"
+                      name="itemName"
+                      value={formData.itemName}
+                      onChange={handleChange}
+                      error={!!errors.itemName}
+                      helperText={errors.itemName}
+                      required
+                      placeholder="e.g., iPhone 13, Black Wallet, Car Keys"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <DescriptionIcon color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth error={!!errors.category}>
+                      <TextField
+                        select
+                        label="Category"
+                        name="category"
+                        value={formData.category}
+                        onChange={handleChange}
+                        required
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <CategoryIcon color="action" />
+                            </InputAdornment>
+                          ),
                         }}
                       >
-                        {image ? 'Change Photo' : 'Choose Photo'}
+                        <MenuItem value="">
+                          <em>Select Category</em>
+                        </MenuItem>
+                        {categories.map((cat) => (
+                          <MenuItem key={cat} value={cat}>
+                            {cat}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      {errors.category && <FormHelperText>{errors.category}</FormHelperText>}
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Date Lost"
+                      name="dateLost"
+                      type="date"
+                      value={formData.dateLost}
+                      onChange={handleChange}
+                      error={!!errors.dateLost}
+                      helperText={errors.dateLost}
+                      required
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <CalendarTodayIcon color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Last Seen Location"
+                      name="lastSeenLocation"
+                      value={formData.lastSeenLocation}
+                      onChange={handleChange}
+                      error={!!errors.lastSeenLocation}
+                      helperText={errors.lastSeenLocation}
+                      required
+                      placeholder="e.g., Main Library, Parking Lot, Restaurant Name"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LocationOnIcon color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      multiline
+                      rows={4}
+                      fullWidth
+                      label="Detailed Description"
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      error={!!errors.description}
+                      helperText={errors.description || "Include color, brand, serial number, unique features"}
+                      required
+                      placeholder="Describe your item in detail. Include: Color, brand, model, serial number (if any), any scratches or unique marks, contents (if applicable)..."
+                    />
+                  </Grid>
+
+                  {/* Image Upload Section */}
+                  <Grid item xs={12}>
+                    <Card variant="outlined" sx={{ borderStyle: 'dashed', borderColor: errors.image ? 'error.main' : 'grey.300' }}>
+                      <CardContent sx={{ p: 3, textAlign: 'center' }}>
                         <input
                           type="file"
-                          hidden
                           accept="image/*"
                           onChange={handleImageChange}
+                          ref={fileInputRef}
+                          style={{ display: 'none' }}
+                          required
                         />
-                      </Button>
-                      {image && (
-                        <Typography variant="body2" sx={{ mt: 2, color: '#2e7d32', fontWeight: 600 }}>
-                          ✓ {image.name}
-                        </Typography>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+                        
+                        {!imagePreview ? (
+                          <Box sx={{ cursor: 'pointer' }} onClick={() => fileInputRef.current.click()}>
+                            <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                            <Typography variant="h6" color="primary" gutterBottom>
+                              Upload Item Image *
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              Click to upload a photo of your lost item
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              JPG, PNG or WebP (Max 5MB)
+                            </Typography>
+                            {errors.image && (
+                              <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }}>
+                                {errors.image}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          <Box>
+                            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                              <img
+                                src={imagePreview}
+                                alt="Preview"
+                                style={{
+                                  width: '200px',
+                                  height: '200px',
+                                  objectFit: 'cover',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e0e0e0'
+                                }}
+                              />
+                              <IconButton
+                                size="small"
+                                onClick={handleRemoveImage}
+                                sx={{
+                                  position: 'absolute',
+                                  top: 8,
+                                  right: 8,
+                                  backgroundColor: 'rgba(255,255,255,0.9)',
+                                  '&:hover': { backgroundColor: 'white' }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                              {imageFile?.name}
+                            </Typography>
+                            {uploadProgress > 0 && (
+                              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CircularProgress variant="determinate" value={uploadProgress} size={24} sx={{ mr: 1 }} />
+                                <Typography variant="caption">
+                                  {uploadProgress === 100 ? 'Upload Complete' : `Uploading... ${uploadProgress}%`}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
 
-              <Grid item xs={12}>
-                <Box 
-                  sx={{ 
-                    p: 3, 
-                    bgcolor: 'rgba(211, 47, 47, 0.05)', 
-                    borderRadius: 2,
-                    borderLeft: '4px solid #d32f2f'
-                  }}
-                >
-                  <Typography variant="body2" fontWeight={600} gutterBottom>
-                    📋 Tips for a Successful Report:
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" component="div">
-                    • Provide a clear, recent photo of the item
-                    <br />
-                    • Include specific details (color, brand, model, etc.)
-                    <br />
-                    • Mention any unique features or marks
-                    <br />
-                    • Be as accurate as possible with date and location
-                  </Typography>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="WhatsApp Number for Contact *"
+                      name="whatsappNumber"
+                      value={formData.whatsappNumber}
+                      onChange={handleChange}
+                      error={!!errors.whatsappNumber}
+                      helperText={errors.whatsappNumber || "Enter your WhatsApp-enabled mobile number"}
+                      required
+                      placeholder="10-digit number (e.g., 9876543210)"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PhoneIcon color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Reward (Optional)"
+                      name="reward"
+                      value={formData.reward}
+                      onChange={handleChange}
+                      placeholder="e.g., ₹500, No reward"
+                      helperText="Optional: Mention if you're offering a reward"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Contact Email (Optional)"
+                      name="contactEmail"
+                      value={formData.contactEmail}
+                      onChange={handleChange}
+                      type="email"
+                      placeholder="For additional contact"
+                    />
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  mt: 5,
+                  pt: 3,
+                  borderTop: '1px solid #e0e0e0'
+                }}>
+                  <UIButton
+                    variant="outlined"
+                    onClick={() => navigate('/')}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </UIButton>
+                  
+                  <UIButton
+                    type="submit"
+                    variant="contained"
+                    disabled={loading || uploadProgress > 0}
+                    sx={{
+                      px: 6,
+                      py: 1.5,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #d982e8 0%, #e34c5c 100%)',
+                      }
+                    }}
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+                  >
+                    {loading ? 'Submitting...' : 'Report Lost Item'}
+                  </UIButton>
                 </Box>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12}>
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  disabled={loading}
-                  size="large"
-                  sx={{ 
-                    py: 1.5,
-                    backgroundColor: '#d32f2f',
-                    fontSize: '1.1rem',
-                    fontWeight: 600,
-                    boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
-                    '&:hover': {
-                      backgroundColor: '#b71c1c',
-                      boxShadow: '0 6px 16px rgba(211, 47, 47, 0.4)',
-                      transform: 'translateY(-2px)'
-                    },
-                    transition: 'all 0.3s'
-                  }}
-                >
-                  {loading ? <CircularProgress size={24} color="inherit" /> : 'Report Lost Item'}
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: 'center' }}>
+                Your report will be visible to our community to help find your item
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Container>
     </Box>
   );
 };

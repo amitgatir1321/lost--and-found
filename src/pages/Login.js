@@ -1,23 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
-  TextField,
-  Button,
   Typography,
   Paper,
   Alert,
   Link,
   InputAdornment,
   IconButton,
-  Stepper,
-  Step,
-  StepLabel,
   Fade,
-  CircularProgress,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
+import UIButton from '../components/UI/Button';
+import Input from '../components/UI/Input';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -25,104 +26,131 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import GoogleIcon from '@mui/icons-material/Google';
 
 const Login = () => {
-  const [step, setStep] = useState(0);
-  const [email, setEmail] = useState('');
-  const [confirmEmail, setConfirmEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    // Load email from localStorage if "Remember me" was checked
+    return localStorage.getItem('rememberedEmail') || '';
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('rememberMe') === 'true';
+  });
   const [error, setError] = useState('');
-  const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { login } = useAuth();
+  const [openForgotPassword, setOpenForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState(email);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
+  const { login, signInWithGoogle, resetPassword } = useAuth();
   const navigate = useNavigate();
 
-  const validateEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
+  const handleRememberMeChange = (e) => {
+    setRememberMe(e.target.checked);
+    if (e.target.checked && email) {
+      localStorage.setItem('rememberedEmail', email);
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      localStorage.removeItem('rememberedEmail');
+      localStorage.removeItem('rememberMe');
+    }
   };
 
-  const handleEmailStep = () => {
-    setError('');
-    setEmailError('');
-
-    if (!email) {
-      setEmailError('Email is required');
-      return;
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (rememberMe) {
+      localStorage.setItem('rememberedEmail', e.target.value);
     }
-
-    if (!validateEmail(email)) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
-
-    if (!confirmEmail) {
-      setEmailError('Please confirm your email');
-      return;
-    }
-
-    if (email !== confirmEmail) {
-      setEmailError('Emails do not match');
-      return;
-    }
-
-    setStep(1);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    if (!password) {
-      setError('Password is required');
-      return;
+    try {
+      if (!email || !password) {
+        setError('Please enter both email and password');
+        setLoading(false);
+        return;
+      }
+
+      await login(email, password);
+      
+      // Save email if "Remember me" is checked
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberMe');
+      }
+      
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+    } catch (error) {
+      if (error.message.includes('verify')) {
+        setError(error.message);
+      } else {
+        setError('Failed to log in. Please check your email and password.');
+      }
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await signInWithGoogle();
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+    } catch (error) {
+      setError('Failed to sign in with Google.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail) {
+      setForgotPasswordMessage('Please enter your email address');
       return;
     }
 
     try {
-      setError('');
-      setLoading(true);
-      await login(email, password);
-      setSuccess(true);
-      
+      setForgotPasswordLoading(true);
+      setForgotPasswordMessage('');
+      await resetPassword(forgotPasswordEmail);
+      setForgotPasswordMessage('Password reset email sent! Check your inbox for the reset link.');
       setTimeout(() => {
-        navigate('/');
-      }, 1500);
+        setOpenForgotPassword(false);
+        setForgotPasswordEmail('');
+        setForgotPasswordMessage('');
+      }, 2000);
     } catch (error) {
-      setLoading(false);
-      if (error.code === 'auth/user-not-found') {
-        setError('No account found with this email');
-      } else if (error.code === 'auth/wrong-password') {
-        setError('Incorrect password');
-      } else if (error.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later');
-      } else {
-        setError('Failed to log in: ' + error.message);
-      }
+      setForgotPasswordMessage('Failed to send password reset email. Please check the email address and try again.');
+    } finally {
+      setForgotPasswordLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, mb: 4 }}>
+    <Container maxWidth="xs">
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {success ? (
-          <Fade in={success}>
-            <Paper 
-              elevation={3} 
-              sx={{ 
-                p: 6, 
-                textAlign: 'center',
-                background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
-                color: 'white'
-              }}
-            >
-              <CheckCircleIcon sx={{ fontSize: 80, mb: 2 }} />
+          <Fade in={success} unmountOnExit>
+            <Paper elevation={3} sx={{ p: 4, textAlign: 'center', width: '100%' }}>
+              <CheckCircleIcon sx={{ fontSize: 80, mb: 2, color: 'success.main' }} />
               <Typography variant="h4" fontWeight="bold" gutterBottom>
                 Login Successful!
               </Typography>
@@ -132,184 +160,254 @@ const Login = () => {
             </Paper>
           </Fade>
         ) : (
-          <Paper elevation={3} sx={{ p: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight="bold">
-              Welcome Back
-            </Typography>
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-              Please enter your credentials to continue
-            </Typography>
+          <Paper
+            elevation={3}
+            sx={{
+              p: 4,
+              borderRadius: 2,
+              background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+              width: '100%'
+            }}
+          >
+            <Box sx={{ textAlign: 'center', mb: 3 }}>
+              <Typography
+                variant="h4"
+                component="h1"
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  color: 'text.primary'
+                }}
+              >
+                Welcome Back
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Sign in to your account to continue
+              </Typography>
+            </Box>
 
-            <Stepper activeStep={step} sx={{ mb: 4 }}>
-              <Step>
-                <StepLabel>Verify Email</StepLabel>
-              </Step>
-              <Step>
-                <StepLabel>Enter Password</StepLabel>
-              </Step>
-            </Stepper>
+            {error && (
+              <Alert severity="error" sx={{ mb: 3, borderRadius: 1 }}>
+                {error}
+              </Alert>
+            )}
 
-            {step === 0 && (
-              <Fade in={step === 0}>
-                <Box>
-                  {emailError && <Alert severity="error" sx={{ mb: 2 }}>{emailError}</Alert>}
-                  
-                  <TextField
-                    fullWidth
-                    label="Email Address"
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setEmailError('');
-                    }}
-                    margin="normal"
-                    required
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailIcon color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                  
-                  <TextField
-                    fullWidth
-                    label="Confirm Email Address"
-                    type="email"
-                    value={confirmEmail}
-                    onChange={(e) => {
-                      setConfirmEmail(e.target.value);
-                      setEmailError('');
-                    }}
-                    margin="normal"
-                    required
-                    error={confirmEmail !== '' && email !== confirmEmail}
-                    helperText={confirmEmail !== '' && email !== confirmEmail ? 'Emails do not match' : ''}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailIcon color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
+            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+              <Input
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                required
+                autoComplete="email"
+                fullWidth
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Input
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                required
+                autoComplete="current-password"
+                fullWidth
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={handleEmailStep}
-                    sx={{ 
-                      mt: 3,
-                      bgcolor: '#414A37',
-                      '&:hover': { bgcolor: '#99744A' }
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={rememberMe}
+                      onChange={handleRememberMeChange}
+                      sx={{
+                        color: '#414A37',
+                        '&.Mui-checked': {
+                          color: '#414A37'
+                        }
+                      }}
+                    />
+                  }
+                  label="Remember me"
+                />
+                <Link
+                  component="button"
+                  variant="body2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setForgotPasswordEmail(email);
+                    setOpenForgotPassword(true);
+                  }}
+                  disabled={loading}
+                  sx={{
+                    color: '#414A37',
+                    textDecoration: 'none',
+                    fontSize: '0.875rem',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                      color: '#99744A'
+                    }
+                  }}
+                >
+                  Forgot Password?
+                </Link>
+              </Box>
+
+              <UIButton
+                type="submit"
+                fullWidth
+                color="primary"
+                loading={loading}
+                sx={{ mt: 3, mb: 3, height: 48 }}
+              >
+                Login
+              </UIButton>
+
+              <Divider sx={{ my: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  or continue with
+                </Typography>
+              </Divider>
+
+              <UIButton
+                fullWidth
+                variant="outlined"
+                startIcon={<GoogleIcon />}
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                sx={{
+                  mb: 3,
+                  height: 48,
+                  borderColor: '#dadce0',
+                  color: '#3c4043',
+                  '&:hover': {
+                    borderColor: '#dadce0',
+                    backgroundColor: '#f8f9fa'
+                  }
+                }}
+              >
+                {loading ? 'Loading...' : 'Sign in with Google'}
+              </UIButton>
+
+              <Box sx={{ textAlign: 'center', mt: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Don't have an account?{' '}
+                  <Link
+                    href="/register"
+                    underline="hover"
+                    sx={{
+                      color: '#414A37',
+                      fontWeight: 600,
+                      '&:hover': {
+                        color: '#99744A'
+                      }
                     }}
                   >
-                    Continue
-                  </Button>
-                </Box>
-              </Fade>
-            )}
-
-            {step === 1 && (
-              <Fade in={step === 1}>
-                <Box component="form" onSubmit={handleSubmit}>
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Email confirmed: {email}
-                  </Alert>
-
-                  {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                  
-                  <TextField
-                    fullWidth
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError('');
-                    }}
-                    margin="normal"
-                    required
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockIcon color="action" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            edge="end"
-                          >
-                            {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox 
-                        checked={rememberMe} 
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        sx={{ color: '#414A37', '&.Mui-checked': { color: '#414A37' } }}
-                      />
-                    }
-                    label="Remember me"
-                    sx={{ mt: 1 }}
-                  />
-
-                  <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      onClick={() => {
-                        setStep(0);
-                        setPassword('');
-                        setError('');
-                      }}
-                      sx={{ 
-                        borderColor: '#414A37',
-                        color: '#414A37',
-                        '&:hover': { borderColor: '#99744A', bgcolor: 'rgba(65, 74, 55, 0.04)' }
-                      }}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      type="submit"
-                      fullWidth
-                      variant="contained"
-                      disabled={loading}
-                      sx={{ 
-                        bgcolor: '#414A37',
-                        '&:hover': { bgcolor: '#99744A' }
-                      }}
-                    >
-                      {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Login'}
-                    </Button>
-                  </Box>
-                </Box>
-              </Fade>
-            )}
-            
-            <Box sx={{ textAlign: 'center', mt: 3 }}>
-              <Typography variant="body2" color="text.secondary">
-                Don't have an account?{' '}
-                <Link href="/register" underline="hover" sx={{ color: '#414A37', fontWeight: 600 }}>
-                  Register Here
-                </Link>
-              </Typography>
+                    Register here
+                  </Link>
+                </Typography>
+              </Box>
             </Box>
           </Paper>
         )}
       </Box>
+
+      {/* Forgot Password Dialog */}
+      <Dialog
+        open={openForgotPassword}
+        onClose={() => {
+          setOpenForgotPassword(false);
+          setForgotPasswordMessage('');
+          setForgotPasswordEmail('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 600 }}>Reset Password</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {forgotPasswordMessage && (
+            <Alert
+              severity={forgotPasswordMessage.includes('sent') ? 'success' : 'error'}
+              sx={{ mb: 2 }}
+            >
+              {forgotPasswordMessage}
+            </Alert>
+          )}
+          {!forgotPasswordMessage.includes('sent') && !forgotPasswordMessage.includes('Success') && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Enter your email address and we'll send you a link to reset your password.
+              </Typography>
+              <Input
+                label="Email Address"
+                type="email"
+                value={forgotPasswordEmail}
+                onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <UIButton
+            onClick={() => {
+              setOpenForgotPassword(false);
+              setForgotPasswordMessage('');
+              setForgotPasswordEmail('');
+            }}
+            variant="outlined"
+          >
+            Close
+          </UIButton>
+          {!forgotPasswordMessage && (
+            <UIButton
+              onClick={handleForgotPassword}
+              color="primary"
+              loading={forgotPasswordLoading}
+            >
+              Send Reset Link
+            </UIButton>
+          )}
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
 
 export default Login;
+

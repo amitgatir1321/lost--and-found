@@ -1,27 +1,47 @@
-# Lost and Found Application
+# Lost & Found Application
 
-A web-based platform for reporting and claiming lost or found items, built with React and Firebase.
+A comprehensive web-based platform for reporting and claiming lost or found items, built with React and Firebase. Features role-based authentication, admin management, and secure Firestore authorization.
 
-## Features
+## ✨ Features
 
-- 🔐 User Authentication (Register/Login)
-- 📝 Report Lost Items
-- 📝 Report Found Items
-- 🔍 Browse and Search Items
-- 👤 User Profile Management
-- 📋 Track Your Claims
-- 👨‍💼 Admin Dashboard
-- 📧 Contact Form
+### 👤 User Features
+- 🔐 Secure Email/Password Registration & Login
+- 📧 Email verification requirement
+- 📝 Report lost items with details
+- 🔍 Browse all lost and found items
+- 💬 Claim found items with messages
+- 👤 User profile management
+- 📋 Track your claims and reports
+- 🔄 Password reset via email
 
-## Tech Stack
+### 🧑‍💼 Admin Features
+- 🔑 Dedicated admin login
+- 📊 Admin dashboard with full control
+- 📦 Post found items
+- 🔗 Match lost & found items
+- ✅ Manage and approve claims
+- 🗑️ Moderate user reports
+- 📧 View contact messages
+- 👥 User management
+
+### 🔐 Security
+- Role-based access control (RBAC)
+- Firestore security rules
+- Email verification requirement
+- Admin email configuration
+- Single admin account model
+- Ownership validation on all operations
+
+## 🛠️ Tech Stack
 
 - **Frontend**: React 18
-- **UI Framework**: Material-UI (MUI) v7 & React Bootstrap
-- **Authentication**: Firebase Authentication
-- **Database**: Firebase Firestore
-- **Storage**: Firebase Storage
+- **UI Framework**: Material-UI (MUI) v5 & React Bootstrap
+- **Authentication**: Firebase Authentication (Email/Password + Google OAuth)
+- **Database**: Firestore (with security rules)
+- **Storage**: Cloud Storage
 - **Routing**: React Router DOM v6
-- **Maps**: Google Maps API (React Google Maps)
+- **State Management**: React Context API
+- **Authorization**: Role-based access control (RBAC)
 
 ## Prerequisites
 
@@ -134,9 +154,81 @@ The optimized production build will be in the `build/` folder, ready to deploy t
 - Netlify
 - GitHub Pages
 
-## Security Notes
+## 📚 Documentation
 
-- All sensitive credentials are stored in `.env.local` (git-ignored)
+Complete documentation is available in these files:
+
+### � Start Here
+- **[INDEX.md](INDEX.md)** - Navigation guide for all documentation
+- **[IMPLEMENTATION_PACKAGE.md](IMPLEMENTATION_PACKAGE.md)** - Overview of everything implemented
+
+### 🔐 Authentication & Authorization
+- **[AUTHENTICATION_GUIDE.md](AUTHENTICATION_GUIDE.md)** - Complete guide to authentication flows, user roles, and authorization implementation
+- **[README_AUTHENTICATION.md](README_AUTHENTICATION.md)** - Implementation summary and feature overview
+
+### 🗄️ Database Schema
+- **[FIRESTORE_SCHEMA.md](FIRESTORE_SCHEMA.md)** - Complete Firestore database schema, collections, fields, and security rules
+
+### 🏗️ Architecture & Design
+- **[ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md)** - Visual system architecture, data flows, and security layers
+
+### 🚀 Setup & Configuration
+- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Step-by-step setup instructions for Firebase, Firestore, and deployment
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference for common configurations and commands
+
+### 📋 Deployment & Testing
+- **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** - 15-phase deployment checklist with security verification
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Detailed summary of implementation with statistics
+
+---
+
+## 🔑 Quick Start with Authentication
+
+### For Users:
+1. Go to [/register](http://localhost:3000/register)
+2. Create account with email and password
+3. Verify email from inbox
+4. Login at [/login](http://localhost:3000/login)
+5. Report lost items or browse found items
+
+### For Admins:
+1. Create admin account in Firebase Console
+2. Set `REACT_APP_ADMIN_EMAIL` in `.env`
+3. Go to [/admin-login](http://localhost:3000/admin-login)
+4. Access admin dashboard at [/admin](http://localhost:3000/admin)
+
+---
+
+## 🔐 Security Notes
+
+- **Never commit `.env` or sensitive credentials** - Use `.env.local` or `.env.example`
+- **Deploy Firestore rules before production** - Use `firebase deploy --only firestore:rules`
+- **Enable email verification** - Required for all user logins
+- **Use HTTPS in production** - Firebase automatically enforces this
+- **Admin is manually created** - No registration UI for admin accounts
+- **Role-based access control** - Users cannot escalate to admin privileges
+
+---
+
+## 🛠️ Environment Setup
+
+### Required Environment Variables
+```bash
+REACT_APP_FIREBASE_API_KEY
+REACT_APP_FIREBASE_AUTH_DOMAIN
+REACT_APP_FIREBASE_PROJECT_ID
+REACT_APP_FIREBASE_STORAGE_BUCKET
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+REACT_APP_FIREBASE_APP_ID
+REACT_APP_ADMIN_EMAIL           # Critical! Set to your admin email
+```
+
+### Get Your Credentials
+1. Firebase Console → Project Settings
+2. Copy Web app config
+3. Paste into `.env.local`
+
+---- All sensitive credentials are stored in `.env.local` (git-ignored)
 - Firebase security rules should be configured in `firestore.rules`
 - Never commit API keys or credentials to the repository
 

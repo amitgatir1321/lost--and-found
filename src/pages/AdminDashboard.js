@@ -23,7 +23,7 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { collection, query, getDocs, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, deleteDoc, where, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -61,11 +61,11 @@ const AdminDashboard = () => {
       let lostQuery, foundQuery;
 
       if (selectedArea === 'all') {
-        lostQuery = query(collection(db, 'lostItems'));
-        foundQuery = query(collection(db, 'foundItems'));
+        lostQuery = query(collection(db, 'lost_items'));
+        foundQuery = query(collection(db, 'found_items'));
       } else {
-        lostQuery = query(collection(db, 'lostItems'), where('location', '==', selectedArea));
-        foundQuery = query(collection(db, 'foundItems'), where('location', '==', selectedArea));
+        lostQuery = query(collection(db, 'lost_items'), where('location', '==', selectedArea));
+        foundQuery = query(collection(db, 'found_items'), where('location', '==', selectedArea));
       }
 
       const lostSnapshot = await getDocs(lostQuery);
@@ -90,7 +90,7 @@ const AdminDashboard = () => {
 
   const handleMarkResolved = async (id, type) => {
     try {
-      const collectionName = type === 'lost' ? 'lostItems' : 'foundItems';
+      const collectionName = type === 'lost' ? 'lost_items' : 'found_items';
       await updateDoc(doc(db, collectionName, id), {
         status: 'resolved',
         resolvedAt: new Date()
@@ -103,7 +103,7 @@ const AdminDashboard = () => {
 
   const handleDelete = async (id, type) => {
     try {
-      const collectionName = type === 'lost' ? 'lostItems' : 'foundItems';
+      const collectionName = type === 'lost' ? 'lost_items' : 'found_items';
       await deleteDoc(doc(db, collectionName, id));
       setOpenDialog(false);
       fetchItems();
@@ -155,22 +155,22 @@ const AdminDashboard = () => {
         <TableBody>
           {items.map((item) => (
             <TableRow key={item.id}>
-              <TableCell>{item.title}</TableCell>
+                      <TableCell>{item.itemName || item.title}</TableCell>
               <TableCell>{item.category}</TableCell>
               <TableCell>{item.location}</TableCell>
               <TableCell>
-                {new Date(item.dateLost || item.dateFound).toLocaleDateString()}
+                      {new Date(item.date || item.dateLost || item.dateFound || Date.now()).toLocaleDateString()}
               </TableCell>
               <TableCell>
                 <Chip
                   label={item.status}
-                  color={item.status === 'active' ? 'primary' : 'success'}
+                        color={item.status === 'resolved' ? 'success' : 'primary'}
                   size="small"
                 />
               </TableCell>
               <TableCell>{item.userEmail}</TableCell>
               <TableCell>
-                {item.status === 'active' && (
+                {item.status !== 'resolved' && (
                   <Button
                     size="small"
                     startIcon={<CheckCircleIcon />}
@@ -304,20 +304,72 @@ const AdminDashboard = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        {new Date(claim.createdAt.seconds * 1000).toLocaleDateString()}
+                        {claim.createdAt && claim.createdAt.seconds ? new Date(claim.createdAt.seconds * 1000).toLocaleDateString() : ''}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="small"
-                          color="error"
-                          startIcon={<DeleteIcon />}
-                          onClick={async () => {
-                            await deleteDoc(doc(db, 'claims', claim.id));
-                            fetchItems();
-                          }}
-                        >
-                          Delete
-                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {claim.status === 'requested' && (
+                            <>
+                              <Button
+                                size="small"
+                                color="success"
+                                onClick={async () => {
+                                  try {
+                                    await runTransaction(db, async (transaction) => {
+                                      const claimRef = doc(db, 'claims', claim.id);
+                                      const claimSnap = await transaction.get(claimRef);
+                                      if (!claimSnap.exists()) throw new Error('Claim not found');
+                                      transaction.update(claimRef, { status: 'approved', approvedAt: serverTimestamp() });
+
+                                      const itemCollection = claim.itemType === 'lost' ? 'lost_items' : 'found_items';
+                                      const itemRef = doc(db, itemCollection, claim.itemId);
+                                      const itemSnap = await transaction.get(itemRef);
+                                      if (itemSnap.exists()) {
+                                        transaction.update(itemRef, { status: 'resolved', resolvedAt: serverTimestamp() });
+                                      }
+                                    });
+                                  } catch (err) {
+                                    console.error('Error approving claim:', err);
+                                  }
+                                  fetchItems();
+                                }}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="small"
+                                color="warning"
+                                onClick={async () => {
+                                  try {
+                                    await runTransaction(db, async (transaction) => {
+                                      const claimRef = doc(db, 'claims', claim.id);
+                                      const claimSnap = await transaction.get(claimRef);
+                                      if (!claimSnap.exists()) throw new Error('Claim not found');
+                                      transaction.update(claimRef, { status: 'rejected', rejectedAt: serverTimestamp() });
+                                    });
+                                  } catch (err) {
+                                    console.error('Error rejecting claim:', err);
+                                  }
+                                  fetchItems();
+                                }}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
+
+                          <Button
+                            size="small"
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={async () => {
+                              await deleteDoc(doc(db, 'claims', claim.id));
+                              fetchItems();
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}

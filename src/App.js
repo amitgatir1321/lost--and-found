@@ -9,16 +9,19 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AdminRoute from './components/AdminRoute';
 import PrivateRoute from './components/PrivateRoute';
+import EmailVerificationRoute from './components/EmailVerificationRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AdminLogin from './pages/AdminLogin';
+import EmailVerification from './pages/EmailVerification';
 import ReportLost from './pages/ReportLost';
 import ReportFound from './pages/ReportFound';
 import AdminDashboard from './pages/AdminDashboard';
 import SetupAdmin from './pages/SetupAdmin';
 import Contact from './pages/Contact';
 import Profile from './pages/Profile';
-import MyClaims from './pages/MyClaims';
+import MyItems from './pages/MyItems';
 import HowItWorks from './pages/HowItWorks';
 import BrowseItems from './pages/BrowseItems';
 import ItemDetail from './pages/ItemDetail';
@@ -33,40 +36,63 @@ function App() {
             <Navbar />
             <Box sx={{ flex: 1 }}>
               <Routes>
+                {/* 🔐 PUBLIC ROUTES */}
+                <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/" element={<Home />} />
+                <Route path="/admin-login" element={<AdminLogin />} />
+                <Route path="/auth/verify-email" element={<EmailVerification />} />
                 <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/browse-items" element={<BrowseItems />} />
                 <Route path="/item/:itemType/:itemId" element={<ItemDetail />} />
                 <Route path="/setup-admin" element={<SetupAdmin />} />
-                <Route path="/report-lost" element={<ReportLost />} />
-                <Route path="/report-found" element={<ReportFound />} />
-                <Route 
-                  path="/admin" 
+                <Route path="/contact" element={<Contact />} />
+
+                {/* 👤 USER PROTECTED ROUTES */}
+                <Route
+                  path="/report-lost"
                   element={
-                    <AdminRoute>
-                      <AdminDashboard />
-                    </AdminRoute>
-                  } 
+                    <EmailVerificationRoute>
+                      <ReportLost />
+                    </EmailVerificationRoute>
+                  }
                 />
-                <Route 
-                  path="/profile" 
+                <Route
+                  path="/report-found"
+                  element={
+                    <EmailVerificationRoute>
+                      <ReportFound />
+                    </EmailVerificationRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
                   element={
                     <PrivateRoute>
                       <Profile />
                     </PrivateRoute>
-                  } 
+                  }
                 />
-                <Route 
-                  path="/my-claims" 
+                <Route
+                  path="/my-items"
                   element={
                     <PrivateRoute>
-                      <MyClaims />
+                      <MyItems />
                     </PrivateRoute>
-                  } 
+                  }
                 />
-                <Route path="/contact" element={<Contact />} />
+
+                {/* 🧑‍💼 ADMIN PROTECTED ROUTES */}
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
+                  }
+                />
+
+                {/* 🚫 CATCH ALL - REDIRECT TO HOME */}
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Box>

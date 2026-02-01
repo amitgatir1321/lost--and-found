@@ -3,8 +3,8 @@ import {
   AppBar, 
   Toolbar, 
   Typography, 
-  Button, 
   Box,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -29,6 +29,7 @@ import {
   Tooltip,
   Badge
 } from '@mui/material';
+import UIButton from './UI/Button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import SearchIcon from '@mui/icons-material/Search';
@@ -49,7 +50,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 const Navbar = () => {
-  const { currentUser, logout, userRole } = useAuth();
+  const { currentUser, logout, userRole, emailVerified } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -198,40 +199,32 @@ const Navbar = () => {
             {!isMobile && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {navItems.map((item) => (
-                  <Button 
+                  <UIButton
                     key={item.path}
                     startIcon={item.icon}
-                    sx={{ 
-                      color: '#414A37', 
+                    variant={isActive(item.path) ? 'contained' : 'text'}
+                    color={isActive(item.path) ? 'primary' : 'secondary'}
+                    sx={{
                       fontWeight: 600,
                       px: 2,
                       py: 1,
                       borderRadius: 2,
+                      backgroundColor: isActive(item.path) ? 'primary.main' : 'transparent',
+                      color: isActive(item.path) ? '#fff' : '#414A37',
+                      boxShadow: isActive(item.path) ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
                       position: 'relative',
-                      backgroundColor: isActive(item.path) ? 'rgba(65, 74, 55, 0.1)' : 'transparent',
-                      '&:hover': { 
-                        backgroundColor: '#99744A', 
-                        color: '#FFFFFF',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
+                      minWidth: 110,
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        backgroundColor: isActive(item.path) ? 'primary.dark' : '#f5f5f5',
+                        color: isActive(item.path) ? '#fff' : 'primary.main',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.10)'
                       },
-                      transition: 'all 0.3s ease',
-                      '&::after': isActive(item.path) ? {
-                        content: '""',
-                        position: 'absolute',
-                        bottom: 0,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: '70%',
-                        height: '3px',
-                        backgroundColor: '#414A37',
-                        borderRadius: '3px 3px 0 0',
-                      } : {}
                     }}
                     onClick={() => handleNavigate(item.path)}
                   >
                     {item.label}
-                  </Button>
+                  </UIButton>
                 ))}
 
                 {currentUser && userRole === 'admin' && (
@@ -305,6 +298,33 @@ const Navbar = () => {
                         <Typography variant="body1" fontWeight={600} sx={{ mt: 0.5 }}>
                           {currentUser.email}
                         </Typography>
+                        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {emailVerified ? (
+                            <>
+                              <Box sx={{ 
+                                width: 8, 
+                                height: 8, 
+                                borderRadius: '50%', 
+                                bgcolor: 'success.main' 
+                              }} />
+                              <Typography variant="caption" color="success.main" fontWeight={500}>
+                                Email Verified
+                              </Typography>
+                            </>
+                          ) : (
+                            <>
+                              <Box sx={{ 
+                                width: 8, 
+                                height: 8, 
+                                borderRadius: '50%', 
+                                bgcolor: 'warning.main' 
+                              }} />
+                              <Typography variant="caption" color="warning.main" fontWeight={500}>
+                                Email Not Verified
+                              </Typography>
+                            </>
+                          )}
+                        </Box>
                       </Box>
                       {userMenuItems.map((item) => (
                         <MenuItem 

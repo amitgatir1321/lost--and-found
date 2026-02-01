@@ -21,7 +21,7 @@ import {
   IconButton
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -50,11 +50,19 @@ const ItemDetail = () => {
 
   const fetchItemDetails = async () => {
     try {
-      const collectionName = itemType === 'lost' ? 'lostItems' : 'foundItems';
+      const collectionName = itemType === 'lost' ? 'lost_items' : 'found_items';
       const itemDoc = await getDoc(doc(db, collectionName, itemId));
-      
+
       if (itemDoc.exists()) {
-        setItem({ id: itemDoc.id, ...itemDoc.data() });
+        const data = itemDoc.data();
+        setItem({
+          id: itemDoc.id,
+          ...data,
+          // normalize fields used by UI
+          itemName: data.itemName || data.title || '',
+          imageURL: data.imageURL || data.imageUrl || '',
+          date: data.date || data.dateLost || data.dateFound || null
+        });
       } else {
         setError('Item not found');
       }
@@ -82,21 +90,19 @@ const ItemDetail = () => {
 
     setSubmitting(true);
     try {
-      const ownerDoc = await getDoc(doc(db, 'users', item.userId));
-      const ownerData = ownerDoc.data();
-
+      // create claim record (status starts as 'requested')
       await addDoc(collection(db, 'claims'), {
         itemId: item.id,
-        itemTitle: item.title,
+        itemTitle: item.itemName || '',
         itemType: itemType,
         itemOwnerId: item.userId,
-        itemOwnerEmail: item.userEmail,
-        claimantId: currentUser.uid,
-        claimantEmail: currentUser.email,
-        claimantName: ownerData?.name || currentUser.email,
+        itemOwnerEmail: item.userEmail || '',
+        claimantUserId: currentUser.uid,
+        claimantEmail: currentUser.email || '',
+        claimantName: currentUser.displayName || currentUser.email || '',
         message: claimMessage,
-        status: 'pending',
-        createdAt: new Date()
+        status: 'requested',
+        createdAt: serverTimestamp()
       });
 
       setClaimDialogOpen(false);
@@ -130,7 +136,7 @@ const ItemDetail = () => {
   }
 
   const isLost = itemType === 'lost';
-  const dateField = isLost ? item.dateLost : item.dateFound;
+  const dateField = item.date || null;
 
   return (
     <Box>
@@ -177,11 +183,11 @@ const ItemDetail = () => {
                 top: 100
               }}
             >
-              {item.imageUrl && (
+              {item.imageURL && (
                 <CardMedia
                   component="img"
-                  image={item.imageUrl}
-                  alt={item.title}
+                  image={item.imageURL}
+                  alt={item.itemName}
                   sx={{ 
                     width: '100%',
                     height: 'auto',
@@ -204,7 +210,7 @@ const ItemDetail = () => {
                   sx={{ fontWeight: 600, mb: 2 }}
                 />
                 <Typography variant="h4" fontWeight="bold" gutterBottom>
-                  {item.title}
+                  {item.itemName}
                 </Typography>
               </Box>
 
@@ -307,6 +313,20 @@ const ItemDetail = () => {
                   }}
                 >
                   {isLost ? 'I Found This Item' : 'This is My Item'}
+                </Button>
+              )}
+
+              {item.whatsappNumber && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="large"
+                  href={`https://wa.me/91${item.whatsappNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ mt: 2 }}
+                >
+                  Contact on WhatsApp
                 </Button>
               )}
 
