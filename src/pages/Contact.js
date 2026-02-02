@@ -10,27 +10,22 @@ import {
   Card,
   CardContent,
   Alert,
-  CircularProgress,
-  Stack,
-  Divider,
-  alpha
+  CircularProgress
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SendIcon from '@mui/icons-material/Send';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
-import ChatIcon from '@mui/icons-material/Chat';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 
 const Contact = () => {
   const { currentUser } = useAuth();
   const [formData, setFormData] = useState({
-    name: currentUser?.displayName || '',
-    email: currentUser?.email || '',
+    name: '',
+    email: '',
     subject: '',
     message: ''
   });
@@ -53,20 +48,23 @@ const Contact = () => {
 
     try {
       await addDoc(collection(db, 'contactMessages'), {
-        ...formData,
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
         userId: currentUser?.uid || null,
-        userEmail: currentUser?.email || null,
         status: 'unread',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        createdAt: new Date()
       });
 
       setSuccess(true);
-      setFormData(prev => ({
-        ...prev,
+      setFormData({
+        name: '',
+        email: '',
         subject: '',
         message: ''
-      }));
+      });
+      setTimeout(() => setSuccess(false), 5000);
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message. Please try again.');
@@ -76,316 +74,319 @@ const Contact = () => {
   };
 
   return (
-    <Box sx={{ bgcolor: '#f8f9fa', minHeight: '100vh', py: { xs: 3, md: 6 } }}>
-      <Container maxWidth="lg">
-        {/* Hero Section */}
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography 
-            variant="h2" 
-            fontWeight={800}
-            sx={{
-              background: 'linear-gradient(135deg, #414A37 0%, #99744A 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 2
-            }}
-          >
-            Contact Us
+    <Box>
+      {/* Hero Section */}
+      <Box
+        sx={{
+          backgroundImage: 'linear-gradient(135deg, rgba(65, 74, 55, 0.9), rgba(153, 116, 74, 0.9)), url(https://images.unsplash.com/photo-1423666639041-f56000c27a9a?auto=format&fit=crop&w=1920)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          color: 'white',
+          py: 8,
+          mb: 6,
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+          }
+        }}
+      >
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+          <Typography variant="h3" fontWeight="bold" gutterBottom align="center">
+            💬 Get In Touch
           </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-            Have questions? We're here to help you reunite with your lost items
+          <Typography variant="h6" align="center" sx={{ opacity: 0.95, maxWidth: 700, mx: 'auto' }}>
+            Have questions or need assistance? We're here to help you reunite with your lost items!
           </Typography>
-        </Box>
+        </Container>
+      </Box>
 
+      <Container maxWidth="lg" sx={{ mb: 6 }}>
         <Grid container spacing={4}>
-          {/* Contact Information */}
+          {/* Contact Information Cards */}
           <Grid item xs={12} md={4}>
-            <Stack spacing={3}>
-              <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
-                <CardContent sx={{ p: 4 }}>
-                  <Stack spacing={3}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box sx={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 2,
-                        bgcolor: alpha('#414A37', 0.1),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <PhoneIcon sx={{ fontSize: 28, color: '#414A37' }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          Phone Support
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Available 24/7
-                        </Typography>
-                        <Typography variant="h6" fontWeight={600} color="primary">
-                          (555) 123-4567
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box sx={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 2,
-                        bgcolor: alpha('#99744A', 0.1),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <EmailIcon sx={{ fontSize: 28, color: '#99744A' }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          Email Us
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Response within 24 hours
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600} color="primary">
-                          support@lostandfound.com
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box sx={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 2,
-                        bgcolor: alpha('#2196F3', 0.1),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <ChatIcon sx={{ fontSize: 28, color: '#2196F3' }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          Live Chat
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Mon-Fri: 9AM - 6PM
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600} color="primary">
-                          Start a chat
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-
-              <Card sx={{ borderRadius: 3 }}>
-                <CardContent sx={{ p: 4 }}>
-                  <Typography variant="h6" fontWeight={600} gutterBottom>
-                    Office Hours
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography>Monday - Friday</Typography>
-                      <Typography fontWeight={600}>9:00 AM - 6:00 PM</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography>Saturday</Typography>
-                      <Typography fontWeight={600}>10:00 AM - 4:00 PM</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography>Sunday</Typography>
-                      <Typography fontWeight={600}>Emergency Only</Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Stack>
-          </Grid>
-
-          {/* Contact Form */}
-          <Grid item xs={12} md={8}>
-            <Paper 
-              elevation={0} 
+            <Card 
               sx={{ 
-                p: { xs: 3, md: 5 },
-                borderRadius: 3,
-                bgcolor: 'white',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+                height: '100%', 
+                textAlign: 'center', 
+                p: 3,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                }
               }}
             >
-              <Typography variant="h5" fontWeight={700} gutterBottom>
-                Send us a message
-              </Typography>
-              <Typography color="text.secondary" sx={{ mb: 4 }}>
-                Fill out the form below and we'll get back to you as soon as possible
-              </Typography>
-
-              {success && (
-                <Alert 
-                  severity="success" 
-                  sx={{ mb: 3 }}
-                  onClose={() => setSuccess(false)}
-                >
-                  Your message has been sent successfully! We'll contact you shortly.
-                </Alert>
-              )}
-
-              {error && (
-                <Alert 
-                  severity="error" 
-                  sx={{ mb: 3 }}
-                  onClose={() => setError('')}
-                >
-                  {error}
-                </Alert>
-              )}
-
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Your Name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        sx: { borderRadius: 2 }
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Email Address"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        sx: { borderRadius: 2 }
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Subject"
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleChange}
-                      required
-                      placeholder="What is this regarding?"
-                      InputProps={{
-                        sx: { borderRadius: 2 }
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Your Message"
-                      name="message"
-                      value={formData.message}
-                      onChange={handleChange}
-                      multiline
-                      rows={5}
-                      required
-                      placeholder="Please provide as much detail as possible..."
-                      InputProps={{
-                        sx: { borderRadius: 2 }
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      size="large"
-                      fullWidth
-                      disabled={loading}
-                      startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
-                      sx={{
-                        py: 1.8,
-                        borderRadius: 2,
-                        bgcolor: '#414A37',
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        '&:hover': {
-                          bgcolor: '#2c3327',
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 6px 20px rgba(65, 74, 55, 0.3)'
-                        },
-                        '&:active': {
-                          transform: 'translateY(0)'
-                        },
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {loading ? 'Sending...' : 'Send Message'}
-                    </Button>
-                  </Grid>
-                </Grid>
+              <Box
+                sx={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(65, 74, 55, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}
+              >
+                <EmailIcon sx={{ fontSize: 40, color: '#414A37' }} />
               </Box>
-
-              <Divider sx={{ my: 4 }} />
-
-              <Stack spacing={2}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <SupportAgentIcon color="primary" />
-                  <Typography variant="body2" color="text.secondary">
-                    Average response time: <strong>2-4 hours</strong> during business hours
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <LocationOnIcon color="primary" />
-                  <Typography variant="body2" color="text.secondary">
-                    Office location: <strong>123 Main Street, Suite 100</strong>
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-
-            {/* FAQ Section */}
-            <Box sx={{ mt: 4 }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom sx={{ mb: 3 }}>
-                Frequently Asked Questions
+              <Typography variant="h6" fontWeight="bold" gutterBottom>
+                📧 Email Us
               </Typography>
+              <Typography color="text.secondary" sx={{ mb: 1 }}>
+                support@lostandfound.com
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                info@lostandfound.com
+              </Typography>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card 
+              sx={{ 
+                height: '100%', 
+                textAlign: 'center', 
+                p: 3,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(153, 116, 74, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}
+              >
+                <PhoneIcon sx={{ fontSize: 40, color: '#99744A' }} />
+              </Box>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>
+                📞 Call Us
+              </Typography>
+              <Typography color="text.secondary" sx={{ mb: 1 }}>
+                (555) 123-4567
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                Mon-Fri: 9AM - 6PM
+              </Typography>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card 
+              sx={{ 
+                height: '100%', 
+                textAlign: 'center', 
+                p: 3,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(219, 194, 166, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}
+              >
+                <AccessTimeIcon sx={{ fontSize: 40, color: '#99744A' }} />
+              </Box>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>
+                ⏰ 24/7 Support
+              </Typography>
+              <Typography color="text.secondary" sx={{ mb: 1 }}>
+                Online chat available
+              </Typography>
+              <Typography color="text.secondary">
+                Always here to help
+              </Typography>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Contact Form */}
+        <Box sx={{ mt: 6 }}>
+          <Paper 
+            elevation={4} 
+            sx={{ 
+              p: 4, 
+              background: 'linear-gradient(to bottom right, #ffffff, #f5f5f5)',
+              borderRadius: 3
+            }}
+          >
+            <Typography 
+              variant="h4" 
+              fontWeight="bold" 
+              gutterBottom 
+              align="center" 
+              sx={{ 
+                mb: 1,
+                background: 'linear-gradient(135deg, #414A37, #99744A)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              ✉️ Send Us a Message
+            </Typography>
+            <Typography 
+              variant="body1" 
+              align="center" 
+              color="text.secondary" 
+              sx={{ mb: 4 }}
+            >
+              Fill out the form below and we'll respond within 24 hours
+            </Typography>
+
+            {success && (
+              <Alert severity="success" sx={{ mb: 3 }}>
+                ✅ Thank you for contacting us! We'll get back to you soon.
+              </Alert>
+            )}
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
+
+            <Box component="form" onSubmit={handleSubmit}>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
-                  <Card variant="outlined" sx={{ borderRadius: 2, p: 3, height: '100%' }}>
-                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                      How quickly can I report a lost item?
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      You can report lost items immediately 24/7 through our platform. For urgent matters, use our emergency contact number.
-                    </Typography>
-                  </Card>
+                  <TextField
+                    fullWidth
+                    label="Your Name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
                 </Grid>
+
                 <Grid item xs={12} md={6}>
-                  <Card variant="outlined" sx={{ borderRadius: 2, p: 3, height: '100%' }}>
-                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                      Is there a fee for using the service?
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Our basic lost and found service is completely free. Premium features may be available for businesses.
-                    </Typography>
-                  </Card>
+                  <TextField
+                    fullWidth
+                    label="Your Email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Subject"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    required
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Message"
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    multiline
+                    rows={6}
+                    required
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    disabled={loading}
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+                    sx={{
+                      backgroundColor: '#414A37',
+                      color: '#FFFFFF',
+                      fontWeight: 'bold',
+                      py: 1.5,
+                      '&:hover': { backgroundColor: '#99744A' },
+                      '&:disabled': { opacity: 0.7 }
+                    }}
+                  >
+                    {loading ? 'Sending...' : 'Send Message'}
+                  </Button>
                 </Grid>
               </Grid>
             </Box>
+          </Paper>
+        </Box>
+
+        {/* Additional Information */}
+        <Box sx={{ mt: 6 }}>
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ p: 3 }}>
+                <LocationOnIcon sx={{ fontSize: 40, color: '#414A37', mb: 2 }} />
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  Office Location
+                </Typography>
+                <Typography color="text.secondary" paragraph>
+                  123 Main Street, Suite 100
+                </Typography>
+                <Typography color="text.secondary" paragraph>
+                  Downtown District
+                </Typography>
+                <Typography color="text.secondary">
+                  City, State 12345
+                </Typography>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card sx={{ p: 3 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  Frequently Asked Questions
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  <strong>How quickly can I report a lost item?</strong><br />
+                  You can report items immediately 24/7 through our platform.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Is there a fee for using the service?</strong><br />
+                  Our basic lost and found service is completely free to use.
+                </Typography>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
+        </Box>
       </Container>
     </Box>
   );
