@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -34,8 +34,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import UIButton from '../components/UI/Button';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
+import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 
 // Professional color scheme
@@ -57,18 +56,28 @@ const ReportFound = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  const [formData, setFormData] = useState({
-    itemName: '',
-    category: '',
-    location: '',
-    description: '',
-    whatsappNumber: '',
-    contactEmail: currentUser?.email || '',
-    date: new Date().toISOString().split('T')[0]
-  });
+  // Load saved form data from localStorage on component mount
+  const loadFormData = () => {
+    const savedData = localStorage.getItem('reportFoundFormData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+    return {
+      itemName: '',
+      category: '',
+      location: '',
+      description: '',
+      whatsappNumber: '',
+      contactEmail: currentUser?.email || '',
+      date: new Date().toISOString().split('T')[0]
+    };
+  };
+
+  const [formData, setFormData] = useState(loadFormData());
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
@@ -89,15 +98,126 @@ const ReportFound = () => {
     'Other Valuables'
   ];
 
+  // Category suggestions based on item name
+  const categorySuggestions = {
+    'phone': 'Electronics',
+    'iphone': 'Electronics',
+    'samsung': 'Electronics',
+    'laptop': 'Electronics',
+    'tablet': 'Electronics',
+    'ipad': 'Electronics',
+    'airpods': 'Electronics',
+    'headphones': 'Electronics',
+    'wallet': 'Bags & Wallets',
+    'purse': 'Bags & Wallets',
+    'bag': 'Bags & Wallets',
+    'backpack': 'Bags & Wallets',
+    'keys': 'Keys & Access Cards',
+    'keychain': 'Keys & Access Cards',
+    'card': 'Keys & Access Cards',
+    'passport': 'Documents',
+    'license': 'Documents',
+    'certificate': 'Documents',
+    'id': 'Documents',
+    'aadhar': 'Documents',
+    'pan': 'Documents',
+    'ring': 'Jewelry',
+    'necklace': 'Jewelry',
+    'bracelet': 'Jewelry',
+    'watch': 'Watches',
+    'earring': 'Jewelry',
+    'jacket': 'Clothing',
+    'shirt': 'Clothing',
+    'sweater': 'Clothing',
+    'coat': 'Clothing',
+    'shoe': 'Clothing',
+    'glasses': 'Eyewear',
+    'sunglasses': 'Eyewear',
+    'book': 'Books & Stationery',
+    'notebook': 'Books & Stationery',
+    'pen': 'Books & Stationery',
+    'toy': 'Toys & Games',
+    'game': 'Toys & Games'
+  };
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('reportFoundFormData', JSON.stringify(formData));
+  }, [formData]);
+
+  // Load saved image from localStorage
+  useEffect(() => {
+    const savedImage = localStorage.getItem('reportFoundImage');
+    if (savedImage) {
+      setImagePreview(savedImage);
+      setImageBase64(savedImage);
+    }
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    
+    // Auto-suggest category based on item name
+    if (name === 'itemName' && value && !formData.category) {
+      const lowerValue = value.toLowerCase();
+      for (const [keyword, category] of Object.entries(categorySuggestions)) {
+        if (lowerValue.includes(keyword)) {
+          setFormData({ ...formData, category, [name]: value });
+          break;
+        }
+      }
+    }
+    
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
     }
   };
 
-  const handleImageChange = (e) => {
+  // Compress and resize image to keep under Firestore 1MB limit
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Resize to max 1024px on longest side
+          const maxSize = 1024;
+          if (width > height) {
+            if (width > maxSize) {
+              height = (height * maxSize) / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = (width * maxSize) / height;
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.7 quality to reduce size
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedBase64);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -117,17 +237,24 @@ const ReportFound = () => {
     setImageFile(file);
     setErrors({ ...errors, image: '' });
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Compress image before storing
+      const compressedBase64 = await compressImage(file);
+      setImagePreview(compressedBase64);
+      setImageBase64(compressedBase64);
+      // Save to localStorage so it persists across page changes
+      localStorage.setItem('reportFoundImage', compressedBase64);
+    } catch (error) {
+      console.error('Image compression error:', error);
+      setErrors({ ...errors, image: 'Failed to process image. Please try another.' });
+    }
   };
 
   const handleRemoveImage = () => {
     setImageFile(null);
     setImagePreview(null);
+    setImageBase64(null);
+    localStorage.removeItem('reportFoundImage');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -171,47 +298,11 @@ const ReportFound = () => {
     }
 
     // Image validation
-    if (!imageFile) {
+    if (!imageBase64 && !imagePreview) {
       newErrors.image = 'Please upload an image of the found item';
     }
 
     return newErrors;
-  };
-
-  const uploadImageToStorage = async (file) => {
-    if (!file) return null;
-
-    const timestamp = Date.now();
-    const fileName = `found_items/${currentUser.uid}_${timestamp}_${file.name}`;
-    const storageRef = ref(storage, fileName);
-
-    // Create upload task
-    const uploadTask = uploadBytes(storageRef, file);
-    
-    // Simulate progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 10;
-      });
-    }, 100);
-
-    try {
-      const snapshot = await uploadTask;
-      clearInterval(interval);
-      setUploadProgress(100);
-      
-      // Get download URL
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
-    } catch (error) {
-      clearInterval(interval);
-      console.error('Image upload error:', error);
-      throw new Error('Failed to upload image. Please try again.');
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -231,18 +322,9 @@ const ReportFound = () => {
     try {
       setLoading(true);
       setErrors({});
-      setUploadProgress(0);
+      setUploadProgress(20);
 
-      // Upload image first
-      let imageUrl = null;
-      if (imageFile) {
-        imageUrl = await uploadImageToStorage(imageFile);
-        if (!imageUrl) {
-          throw new Error('Image upload failed');
-        }
-      }
-
-      // Submit form data to Firestore
+      // Submit form data to Firestore with base64 image
       const itemData = {
         itemName: formData.itemName,
         category: formData.category,
@@ -251,7 +333,7 @@ const ReportFound = () => {
         description: formData.description,
         whatsappNumber: formData.whatsappNumber,
         contactEmail: formData.contactEmail,
-        imageUrl,
+        imageUrl: imageBase64, // Store base64 image directly in Firestore
         userId: currentUser.uid,
         userEmail: currentUser.email,
         userName: currentUser.displayName || '',
@@ -265,13 +347,18 @@ const ReportFound = () => {
         lastContacted: null
       };
 
+      setUploadProgress(60);
       console.log('Submitting found item:', itemData);
       const docRef = await addDoc(collection(db, 'found_items'), itemData);
       console.log('Found item submitted successfully with ID:', docRef.id);
 
+      setUploadProgress(100);
       setSuccess(true);
       
-      // Reset form
+      // Clear form data and localStorage
+      localStorage.removeItem('reportFoundFormData');
+      localStorage.removeItem('reportFoundImage');
+      
       setFormData({
         itemName: '',
         category: '',
@@ -283,6 +370,7 @@ const ReportFound = () => {
       });
       setImageFile(null);
       setImagePreview(null);
+      setImageBase64(null);
       setUploadProgress(0);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';

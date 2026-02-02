@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -29,8 +29,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import UIButton from '../components/UI/Button';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
+import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 
 const ReportLost = () => {
@@ -38,23 +37,92 @@ const ReportLost = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  const [formData, setFormData] = useState({
-    itemName: '',
-    category: '',
-    location: '',
-    date: '',
-    description: '',
-    whatsappNumber: '',
-    contactEmail: currentUser?.email || '',
-    reward: ''
-  });
+  // Load saved form data from localStorage on component mount
+  const loadFormData = () => {
+    const savedData = localStorage.getItem('reportLostFormData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+    return {
+      itemName: '',
+      category: '',
+      location: '',
+      date: '',
+      description: '',
+      whatsappNumber: '',
+      contactEmail: currentUser?.email || '',
+      reward: ''
+    };
+  };
+
+  const [formData, setFormData] = useState(loadFormData());
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Category suggestions based on item name
+  const categorySuggestions = {
+    'phone': 'Electronics',
+    'iphone': 'Electronics',
+    'samsung': 'Electronics',
+    'laptop': 'Electronics',
+    'tablet': 'Electronics',
+    'ipad': 'Electronics',
+    'airpods': 'Electronics',
+    'headphones': 'Electronics',
+    'wallet': 'Bags & Wallets',
+    'purse': 'Bags & Wallets',
+    'bag': 'Bags & Wallets',
+    'backpack': 'Bags & Wallets',
+    'keys': 'Keys & Access Cards',
+    'keychain': 'Keys & Access Cards',
+    'card': 'Keys & Access Cards',
+    'passport': 'Documents',
+    'license': 'Documents',
+    'certificate': 'Documents',
+    'id': 'Documents',
+    'aadhar': 'Documents',
+    'pan': 'Documents',
+    'ring': 'Jewelry',
+    'necklace': 'Jewelry',
+    'bracelet': 'Jewelry',
+    'watch': 'Jewelry',
+    'earring': 'Jewelry',
+    'jacket': 'Clothing',
+    'shirt': 'Clothing',
+    'sweater': 'Clothing',
+    'coat': 'Clothing',
+    'shoe': 'Clothing',
+    'glasses': 'Clothing',
+    'sunglasses': 'Clothing',
+    'book': 'Books & Stationery',
+    'notebook': 'Books & Stationery',
+    'pen': 'Books & Stationery',
+    'toy': 'Toys & Games',
+    'game': 'Toys & Games',
+    'pet': 'Pets & Animals',
+    'dog': 'Pets & Animals',
+    'cat': 'Pets & Animals'
+  };
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('reportLostFormData', JSON.stringify(formData));
+  }, [formData]);
+
+  // Load saved image from localStorage
+  useEffect(() => {
+    const savedImage = localStorage.getItem('reportLostImage');
+    if (savedImage) {
+      setImagePreview(savedImage);
+      setImageBase64(savedImage);
+    }
+  }, []);
 
   const categories = [
     'Electronics',
@@ -72,12 +140,67 @@ const ReportLost = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Auto-suggest category based on item name
+    if (name === 'itemName' && value && !formData.category) {
+      const lowerValue = value.toLowerCase();
+      for (const [keyword, category] of Object.entries(categorySuggestions)) {
+        if (lowerValue.includes(keyword)) {
+          setFormData((prev) => ({ ...prev, category, [name]: value }));
+          break;
+        }
+      }
+    }
+    
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
-  const handleImageChange = (e) => {
+  // Compress and resize image to keep under Firestore 1MB limit
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Resize to max 1024px on longest side
+          const maxSize = 1024;
+          if (width > height) {
+            if (width > maxSize) {
+              height = (height * maxSize) / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = (width * maxSize) / height;
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.7 quality to reduce size
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedBase64);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -96,15 +219,25 @@ const ReportLost = () => {
     setUploadProgress(0);
     setErrors((prev) => ({ ...prev, image: '' }));
 
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+    try {
+      // Compress image before storing
+      const compressedBase64 = await compressImage(file);
+      setImagePreview(compressedBase64);
+      setImageBase64(compressedBase64);
+      // Save to localStorage so it persists across page changes
+      localStorage.setItem('reportLostImage', compressedBase64);
+    } catch (error) {
+      console.error('Image compression error:', error);
+      setErrors((prev) => ({ ...prev, image: 'Failed to process image. Please try another.' }));
+    }
   };
 
   const handleRemoveImage = () => {
     setImageFile(null);
     setImagePreview(null);
+    setImageBase64(null);
     setUploadProgress(0);
+    localStorage.removeItem('reportLostImage');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -128,45 +261,11 @@ const ReportLost = () => {
       newErrors.whatsappNumber = 'Enter a valid 10-digit Indian mobile number';
     }
 
-    if (!imageFile) newErrors.image = 'Please upload an image of the lost item';
+    if (!imageBase64 && !imagePreview) {
+      newErrors.image = 'Please upload an image of the lost item';
+    }
 
     return newErrors;
-  };
-
-  const uploadImageToStorage = (file) => {
-    return new Promise((resolve, reject) => {
-      if (!file) return resolve(null);
-      if (!currentUser?.uid) return reject(new Error('Not logged in'));
-
-      const timestamp = Date.now();
-      const safeName = file.name.replace(/[^\w.\-]/g, "_");
-      const filePath = `lost_items/${currentUser.uid}_${timestamp}_${safeName}`;
-      const storageRef = ref(storage, filePath);
-
-      const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const pct = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(Math.min(90, Math.round(pct)));
-        },
-        (error) => {
-          console.error('Image upload error:', error);
-          reject(error);
-        },
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            setUploadProgress(100);
-            resolve(downloadURL);
-          } catch (err) {
-            console.error('getDownloadURL error:', err);
-            reject(err);
-          }
-        }
-      );
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -186,10 +285,9 @@ const ReportLost = () => {
     try {
       setLoading(true);
       setErrors({});
-      setUploadProgress(0);
+      setUploadProgress(20);
 
-      const imageUrl = await uploadImageToStorage(imageFile);
-
+      // Use base64 image stored in Firebase DB instead of Firebase Storage
       const itemData = {
         itemName: formData.itemName,
         category: formData.category,
@@ -199,7 +297,7 @@ const ReportLost = () => {
         whatsappNumber: formData.whatsappNumber,
         contactEmail: formData.contactEmail,
         reward: formData.reward?.trim() ? formData.reward.trim() : 'No reward mentioned',
-        imageUrl,
+        imageUrl: imageBase64, // Store base64 image directly in Firestore
         userId: currentUser.uid,
         userEmail: currentUser.email,
         status: 'lost',
@@ -209,10 +307,16 @@ const ReportLost = () => {
         reportType: 'lost'
       };
 
+      setUploadProgress(60);
       const docRef = await addDoc(collection(db, 'lost_items'), itemData);
       console.log('Lost item submitted successfully with ID:', docRef.id);
 
+      setUploadProgress(100);
       setSuccess(true);
+
+      // Clear form data and localStorage
+      localStorage.removeItem('reportLostFormData');
+      localStorage.removeItem('reportLostImage');
 
       setFormData({
         itemName: '',
@@ -226,6 +330,7 @@ const ReportLost = () => {
       });
       setImageFile(null);
       setImagePreview(null);
+      setImageBase64(null);
       setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
