@@ -6,7 +6,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardMedia,
   Chip,
   TextField,
   MenuItem,
@@ -25,18 +24,14 @@ import {
   AvatarGroup
 } from '@mui/material';
 import UIButton from '../components/UI/Button';
-import UICard from '../components/UI/Card';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, where, addDoc, getDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CategoryIcon from '@mui/icons-material/Category';
 import SearchIcon from '@mui/icons-material/Search';
 import FindInPageIcon from '@mui/icons-material/FindInPage';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -76,7 +71,7 @@ const Home = () => {
   const [filterLocation, setFilterLocation] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [openClaimDialog, setOpenClaimDialog] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem] = useState(null);
   const [claimMessage, setClaimMessage] = useState('');
   const [claimSuccess, setClaimSuccess] = useState(false);
   const { currentUser } = useAuth();
@@ -132,6 +127,7 @@ const Home = () => {
 
   useEffect(() => {
     findMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lostItems, foundItems]);
 
   const fetchItems = async () => {
@@ -148,8 +144,9 @@ const Home = () => {
           id: doc.id,
           ...data,
           itemName: data.itemName || data.title || '',
-          imageURL: data.imageUrl || data.imageURL || '',
-          date: data.date || data.dateLost || data.dateFound || null,
+          imageUrl: data.imageUrl || '',
+          date: data.date || null,
+          location: data.location || '',
           createdAt: data.createdAt || serverTimestamp()
         };
       };
@@ -203,17 +200,13 @@ const Home = () => {
     return categoryMatch && locationMatch && searchMatch;
   });
 
-  const handleClaimItem = (item, itemType) => {
+  const submitClaim = async () => {
+    if (!claimMessage.trim()) return;
+
     if (!currentUser) {
       navigate('/login');
       return;
     }
-    setSelectedItem({ ...item, itemType });
-    setOpenClaimDialog(true);
-  };
-
-  const submitClaim = async () => {
-    if (!claimMessage.trim()) return;
 
     await addDoc(collection(db, 'claims'), {
       itemId: selectedItem.id,
@@ -225,7 +218,7 @@ const Home = () => {
       claimantEmail: currentUser.email || '',
       claimantName: currentUser.displayName || currentUser.email || '',
       message: claimMessage,
-      status: 'requested',
+      status: 'pending',
       createdAt: serverTimestamp()
     });
 
@@ -592,7 +585,7 @@ const Home = () => {
                     bgcolor: colors.accent,
                     '&:hover': { bgcolor: colors.highlight }
                   }}
-                  onClick={() => navigate('/matches')}
+                  onClick={() => navigate('/browse-items')}
                 >
                   View Matches
                 </UIButton>
@@ -712,7 +705,7 @@ const Home = () => {
                         >
                           <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
-                              {item.imageURL ? (
+                              {item.imageUrl ? (
                                 <Box sx={{ 
                                   width: 72, 
                                   height: 72, 
@@ -721,7 +714,7 @@ const Home = () => {
                                   flexShrink: 0
                                 }}>
                                   <img
-                                    src={item.imageURL}
+                                    src={item.imageUrl}
                                     alt={item.itemName}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                   />
@@ -780,7 +773,7 @@ const Home = () => {
                           fullWidth
                           variant="outlined"
                           endIcon={<ArrowForwardIcon />}
-                          onClick={() => navigate('/lost-items')}
+                          onClick={() => navigate('/browse-items')}
                           sx={{ 
                             mt: 2,
                             borderColor: alpha(colors.neutral, 0.2),
@@ -878,7 +871,7 @@ const Home = () => {
                         >
                           <CardContent sx={{ p: 2.5 }}>
                             <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
-                              {item.imageURL ? (
+                              {item.imageUrl ? (
                                 <Box sx={{ 
                                   width: 72, 
                                   height: 72, 
@@ -887,7 +880,7 @@ const Home = () => {
                                   flexShrink: 0
                                 }}>
                                   <img
-                                    src={item.imageURL}
+                                    src={item.imageUrl}
                                     alt={item.itemName}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                   />
@@ -946,7 +939,7 @@ const Home = () => {
                           fullWidth
                           variant="outlined"
                           endIcon={<ArrowForwardIcon />}
-                          onClick={() => navigate('/found-items')}
+                          onClick={() => navigate('/browse-items')}
                           sx={{ 
                             mt: 2,
                             borderColor: alpha(colors.neutral, 0.2),

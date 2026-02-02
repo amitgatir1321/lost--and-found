@@ -22,6 +22,7 @@ import SetupAdmin from './pages/SetupAdmin';
 import Contact from './pages/Contact';
 import Profile from './pages/Profile';
 import MyItems from './pages/MyItems';
+import MyClaims from './pages/MyClaims';
 import HowItWorks from './pages/HowItWorks';
 import BrowseItems from './pages/BrowseItems';
 import ItemDetail from './pages/ItemDetail';
@@ -78,6 +79,14 @@ function App() {
                   element={
                     <PrivateRoute>
                       <MyItems />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/my-claims"
+                  element={
+                    <PrivateRoute>
+                      <MyClaims />
                     </PrivateRoute>
                   }
                 />

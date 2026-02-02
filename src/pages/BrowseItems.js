@@ -19,9 +19,7 @@ import {
   DialogActions,
   Paper,
   Skeleton,
-  Avatar,
   Divider,
-  Badge,
   Button
 } from '@mui/material';
 import {
@@ -37,7 +35,7 @@ import {
 import UIButton from '../components/UI/Button';
 import UICard from '../components/UI/Card';
 import { db } from '../firebase/config';
-import { collection, getDocs, addDoc, getDoc, doc, serverTimestamp, where, query } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, where, query } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 const BrowseItems = () => {
@@ -127,10 +125,12 @@ const BrowseItems = () => {
   const submitClaim = async () => {
     if (!claimMessage.trim()) return;
 
-    try {
-      const ownerDoc = await getDoc(doc(db, 'users', selectedItem.userId));
-      const ownerData = ownerDoc.data();
+    if (!currentUser) {
+      alert('Please log in to submit a claim');
+      return;
+    }
 
+    try {
       await addDoc(collection(db, 'claims'), {
         itemId: selectedItem.id,
         itemTitle: selectedItem.itemName || selectedItem.title || '',
@@ -141,7 +141,7 @@ const BrowseItems = () => {
         claimantEmail: currentUser.email || '',
         claimantName: currentUser.displayName || currentUser.email || '',
         message: claimMessage,
-        status: 'requested',
+        status: 'pending',
         createdAt: serverTimestamp()
       });
 
@@ -209,11 +209,11 @@ const BrowseItems = () => {
           }}
         />
         
-        {item.imageURL ? (
+        {item.imageUrl ? (
           <CardMedia
             component="img"
             height="220"
-            image={item.imageURL}
+            image={item.imageUrl}
             alt={item.itemName || item.title}
             sx={{ 
               objectFit: 'cover',

@@ -182,12 +182,12 @@ const MyItems = () => {
 
     return (
       <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: 2 }}>
-        {item.imageURL && (
+        {item.imageUrl && (
           <Box
             sx={{
               width: '100%',
               height: 200,
-              backgroundImage: `url(${item.imageURL})`,
+              backgroundImage: `url(${item.imageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               position: 'relative'
@@ -213,7 +213,7 @@ const MyItems = () => {
             <Typography variant="h6" fontWeight="bold" sx={{ flex: 1 }}>
               {item.itemName}
             </Typography>
-            {!item.imageURL && (
+            {!item.imageUrl && (
               <Chip
                 icon={<CurrentIcon />}
                 label={item.status.charAt(0).toUpperCase() + item.status.slice(1)}

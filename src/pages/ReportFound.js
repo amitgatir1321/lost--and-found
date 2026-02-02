@@ -64,7 +64,7 @@ const ReportFound = () => {
     description: '',
     whatsappNumber: '',
     contactEmail: currentUser?.email || '',
-    foundDate: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0]
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -166,8 +166,8 @@ const ReportFound = () => {
       newErrors.whatsappNumber = 'Enter a valid 10-digit mobile number';
     }
 
-    if (!formData.foundDate) {
-      newErrors.foundDate = 'Found date is required';
+    if (!formData.date) {
+      newErrors.date = 'Found date is required';
     }
 
     // Image validation
@@ -243,8 +243,14 @@ const ReportFound = () => {
       }
 
       // Submit form data to Firestore
-      await addDoc(collection(db, 'found_items'), {
-        ...formData,
+      const itemData = {
+        itemName: formData.itemName,
+        category: formData.category,
+        location: formData.location,
+        date: formData.date,
+        description: formData.description,
+        whatsappNumber: formData.whatsappNumber,
+        contactEmail: formData.contactEmail,
         imageUrl,
         userId: currentUser.uid,
         userEmail: currentUser.email,
@@ -257,7 +263,11 @@ const ReportFound = () => {
         verificationStatus: 'pending',
         isActive: true,
         lastContacted: null
-      });
+      };
+
+      console.log('Submitting found item:', itemData);
+      const docRef = await addDoc(collection(db, 'found_items'), itemData);
+      console.log('Found item submitted successfully with ID:', docRef.id);
 
       setSuccess(true);
       
@@ -269,7 +279,7 @@ const ReportFound = () => {
         description: '',
         whatsappNumber: '',
         contactEmail: currentUser.email,
-        foundDate: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0]
       });
       setImageFile(null);
       setImagePreview(null);
@@ -280,7 +290,7 @@ const ReportFound = () => {
 
       setTimeout(() => {
         setSuccess(false);
-        navigate('/found-items');
+        navigate('/my-items');
       }, 3000);
     } catch (error) {
       console.error('Submission error:', error);
@@ -533,12 +543,12 @@ const ReportFound = () => {
                     <TextField
                       fullWidth
                       label="Found Date *"
-                      name="foundDate"
+                      name="date"
                       type="date"
-                      value={formData.foundDate}
+                      value={formData.date}
                       onChange={handleChange}
-                      error={!!errors.foundDate}
-                      helperText={errors.foundDate}
+                      error={!!errors.date}
+                      helperText={errors.date}
                       required
                       InputLabelProps={{ shrink: true }}
                       InputProps={{

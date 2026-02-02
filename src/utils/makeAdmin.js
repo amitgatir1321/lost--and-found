@@ -1,54 +1,80 @@
-// Run this in the browser console when logged in to make a user admin
-// 1. Login to your app
-// 2. Open browser console (F12)
-// 3. Copy and paste this code
-// 4. Run: makeAdmin('user-uid-here') or makeCurrentUserAdmin()
+// ⚠️ SECURITY WARNING ⚠️
+// These functions are DISABLED for security reasons.
+// Normal users cannot change roles via client-side code.
+// Firestore security rules prevent role modifications by non-admins.
+// 
+// To make a user admin:
+// 1. Use Firebase Admin SDK (server-side)
+// 2. Or use Firebase Console directly
+// 3. Or use a secure Cloud Function with proper authentication
+//
+// Example Cloud Function approach:
+// exports.makeAdmin = functions.https.onCall(async (data, context) => {
+//   if (!context.auth || context.auth.token.admin !== true) {
+//     throw new functions.https.HttpsError('permission-denied', 'Only admins can make users admin');
+//   }
+//   await admin.firestore().collection('users').doc(data.uid).update({ role: 'admin' });
+// });
 
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 
-// Make current logged-in user an admin
+// DISABLED: Make current logged-in user an admin
 export const makeCurrentUserAdmin = async () => {
-  const user = auth.currentUser;
-  if (!user) {
-    console.error('No user is logged in');
-    return;
-  }
+  console.error('⚠️ Security Error: This function is disabled. Normal users cannot assign admin roles.');
+  console.error('Please use Firebase Admin SDK or Firebase Console to assign admin roles.');
+  return;
   
-  try {
-    const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, {
-      role: 'admin'
-    });
-    console.log(`✅ User ${user.email} is now an admin! Please refresh the page.`);
-  } catch (error) {
-    console.error('Error making user admin:', error);
-  }
+  // Original code disabled for security
+  // const user = auth.currentUser;
+  // if (!user) {
+  //   console.error('No user is logged in');
+  //   return;
+  // }
+  // 
+  // try {
+  //   const userRef = doc(db, 'users', user.uid);
+  //   await updateDoc(userRef, {
+  //     role: 'admin'
+  //   });
+  //   console.log(`✅ User ${user.email} is now an admin! Please refresh the page.`);
+  // } catch (error) {
+  //   console.error('Error making user admin:', error);
+  // }
 };
 
-// Make any user admin by UID
+// DISABLED: Make any user admin by UID
 export const makeUserAdmin = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userRef);
-    
-    if (!userDoc.exists()) {
-      console.error('User not found');
-      return;
-    }
-    
-    await updateDoc(userRef, {
-      role: 'admin'
-    });
-    console.log(`✅ User with UID ${uid} is now an admin!`);
-  } catch (error) {
-    console.error('Error making user admin:', error);
-  }
+  console.error('⚠️ Security Error: This function is disabled. Normal users cannot assign admin roles.');
+  console.error('Please use Firebase Admin SDK or Firebase Console to assign admin roles.');
+  return;
+  
+  // Original code disabled for security
+  // try {
+  //   const userRef = doc(db, 'users', uid);
+  //   const userDoc = await getDoc(userRef);
+  //   
+  //   if (!userDoc.exists()) {
+  //     console.error('User not found');
+  //     return;
+  //   }
+  //   
+  //   await updateDoc(userRef, {
+  //     role: 'admin'
+  //   });
+  //   console.log(`✅ User with UID ${uid} is now an admin!`);
+  // } catch (error) {
+  //   console.error('Error making user admin:', error);
+  // }
 };
 
-// Make user admin by email
+// DISABLED: Make user admin by email
 export const makeUserAdminByEmail = async (email) => {
-  // Note: You'll need to implement a query to find user by email
-  console.log('Search for user with email:', email);
-  console.log('Then use makeUserAdmin(uid) with their UID');
+  console.error('⚠️ Security Error: This function is disabled. Normal users cannot assign admin roles.');
+  console.error('Please use Firebase Admin SDK or Firebase Console to assign admin roles.');
+  return;
+  
+  // Original code disabled
+  // console.log('Search for user with email:', email);
+  // console.log('Then use makeUserAdmin(uid) with their UID');
 };

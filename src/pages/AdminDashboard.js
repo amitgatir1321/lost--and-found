@@ -159,7 +159,7 @@ const AdminDashboard = () => {
               <TableCell>{item.category}</TableCell>
               <TableCell>{item.location}</TableCell>
               <TableCell>
-                      {new Date(item.date || item.dateLost || item.dateFound || Date.now()).toLocaleDateString()}
+                      {item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}
               </TableCell>
               <TableCell>
                 <Chip
@@ -308,7 +308,7 @@ const AdminDashboard = () => {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                          {claim.status === 'requested' && (
+                          {claim.status === 'pending' && (
                             <>
                               <Button
                                 size="small"

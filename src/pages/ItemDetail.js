@@ -5,7 +5,6 @@ import {
   Typography,
   Card,
   CardMedia,
-  CardContent,
   Chip,
   Button,
   Grid,
@@ -46,6 +45,7 @@ const ItemDetail = () => {
 
   useEffect(() => {
     fetchItemDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId, itemType]);
 
   const fetchItemDetails = async () => {
@@ -60,8 +60,9 @@ const ItemDetail = () => {
           ...data,
           // normalize fields used by UI
           itemName: data.itemName || data.title || '',
-          imageURL: data.imageURL || data.imageUrl || '',
-          date: data.date || data.dateLost || data.dateFound || null
+          imageUrl: data.imageUrl || '',
+          date: data.date || null,
+          location: data.location || ''
         });
       } else {
         setError('Item not found');
@@ -88,9 +89,14 @@ const ItemDetail = () => {
       return;
     }
 
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // create claim record (status starts as 'requested')
+      // create claim record (status starts as 'pending')
       await addDoc(collection(db, 'claims'), {
         itemId: item.id,
         itemTitle: item.itemName || '',
@@ -101,7 +107,7 @@ const ItemDetail = () => {
         claimantEmail: currentUser.email || '',
         claimantName: currentUser.displayName || currentUser.email || '',
         message: claimMessage,
-        status: 'requested',
+        status: 'pending',
         createdAt: serverTimestamp()
       });
 
@@ -183,10 +189,10 @@ const ItemDetail = () => {
                 top: 100
               }}
             >
-              {item.imageURL && (
+              {item.imageUrl && (
                 <CardMedia
                   component="img"
-                  image={item.imageURL}
+                  image={item.imageUrl}
                   alt={item.itemName}
                   sx={{ 
                     width: '100%',
