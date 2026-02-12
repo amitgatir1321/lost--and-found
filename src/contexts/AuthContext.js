@@ -10,13 +10,19 @@ import {
   sendPasswordResetEmail,
   updatePassword
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+  onSnapshot
+} from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
 
-// 🔑 ADMIN EMAIL - Configure this in your environment or Firebase config
-// For now, set this as the only admin email allowed
+// 🔑 ADMIN EMAIL
 const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL || 'admin@lostfound.com';
 
 export const useAuth = () => useContext(AuthContext);
@@ -28,7 +34,7 @@ export const AuthProvider = ({ children }) => {
   const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ✅ SIGN UP (USERS ONLY - Always assigns role: "user")
+  // ✅ SIGN UP (EMAIL/PASSWORD)
   const signup = async (email, password, name) => {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
@@ -38,29 +44,25 @@ export const AuthProvider = ({ children }) => {
 
     const user = userCredential.user;
 
-    // 🚫 Prevent users from registering with admin email
     if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-      // This shouldn't happen, but added as extra protection
       await signOut(auth);
       throw new Error('This email is reserved for admin.');
     }
 
-    // ✅ Send verification email
-    // ✅ Create Firestore user document with role: "user"
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       name,
       email: user.email,
-      role: 'user', // ✅ Always "user" for new registrations
+      whatsapp: '',
+      role: 'user',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
 
-    // ✅ Send verification email to the newly created user
     try {
       await sendEmailVerification(user);
     } catch (err) {
-      console.error('Failed to send verification email:', err);
+      console.error('Verification email error:', err);
     }
 
     return user;
@@ -72,16 +74,16 @@ export const AuthProvider = ({ children }) => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
 
-    if (!userDoc.exists()) {
-      // 🚫 Google users cannot be admin
-      await setDoc(userDocRef, {
+    if (!snap.exists()) {
+      await setDoc(userRef, {
         uid: user.uid,
         name: user.displayName,
         email: user.email,
-        role: 'user', // ✅ Always "user" for Google sign-in
+        whatsapp: '',
+        role: 'user',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -90,7 +92,7 @@ export const AuthProvider = ({ children }) => {
     return user;
   };
 
-  // ✅ LOGIN (CHECKS EMAIL VERIFICATION + ADMIN ROLE)
+  // ✅ LOGIN
   const login = async (email, password) => {
     const userCredential = await signInWithEmailAndPassword(
       auth,
@@ -102,15 +104,13 @@ export const AuthProvider = ({ children }) => {
 
     if (!user.emailVerified) {
       await signOut(auth);
-      throw new Error(
-        'Please verify your email before logging in. Check your inbox.'
-      );
+      throw new Error('Please verify your email before logging in.');
     }
 
     return user;
   };
 
-  // ✅ RESET PASSWORD (FREE)
+  // ✅ RESET PASSWORD
   const resetPassword = (email) => {
     return sendPasswordResetEmail(auth, email);
   };
@@ -123,23 +123,32 @@ export const AuthProvider = ({ children }) => {
     throw new Error('Email already verified or no user logged in.');
   };
 
-  // ✅ UPDATE USER PROFILE (NAME ONLY - email & role cannot be changed)
-  const updateUserProfile = async (name) => {
+  // ✅ UPDATE USER PROFILE (NAME + WHATSAPP)
+  const updateUserProfile = async (name, whatsapp = null) => {
     if (!currentUser) throw new Error('No user logged in.');
-    
+
     try {
-      // Update Firestore document
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      const updateData = {
         name,
         updatedAt: serverTimestamp()
-      });
-      
-      // Update currentUser state
+      };
+
+      // Only add whatsapp if it's provided and not empty
+      if (whatsapp !== null && whatsapp !== undefined && whatsapp.trim()) {
+        updateData.whatsapp = whatsapp.trim();
+      }
+
+      await setDoc(
+        doc(db, 'users', currentUser.uid),
+        updateData,
+        { merge: true }
+      );
+
       setCurrentUser({
         ...currentUser,
         displayName: name
       });
-      
+
       return true;
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -147,18 +156,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ✅ UPDATE USER PASSWORD (Firebase Auth)
+  // ✅ UPDATE USER PASSWORD
   const updateUserPassword = async (newPassword) => {
     if (!currentUser) throw new Error('No user logged in.');
-    
+
     try {
       await updatePassword(currentUser, newPassword);
-      
-      // Update updatedAt in Firestore
+
       await updateDoc(doc(db, 'users', currentUser.uid), {
         updatedAt: serverTimestamp()
       });
-      
+
       return true;
     } catch (error) {
       console.error('Error updating password:', error);
@@ -169,7 +177,7 @@ export const AuthProvider = ({ children }) => {
   // ✅ LOGOUT
   const logout = () => signOut(auth);
 
-  // ✅ AUTH STATE LISTENER - subscribe to Firebase Auth and to user's Firestore doc for role
+  // ✅ AUTH STATE LISTENER
   useEffect(() => {
     let unsubscribeUserDoc = null;
 
@@ -178,7 +186,6 @@ export const AuthProvider = ({ children }) => {
       setUserEmail(user?.email || null);
       setEmailVerified(user?.emailVerified || false);
 
-      // cleanup previous user doc listener
       if (unsubscribeUserDoc) {
         unsubscribeUserDoc();
         unsubscribeUserDoc = null;
@@ -186,16 +193,20 @@ export const AuthProvider = ({ children }) => {
 
       if (user) {
         const userRef = doc(db, 'users', user.uid);
-        unsubscribeUserDoc = onSnapshot(userRef, (snap) => {
-          if (snap.exists()) {
-            setUserRole(snap.data().role || 'user');
-          } else {
-            setUserRole('user');
+        unsubscribeUserDoc = onSnapshot(
+          userRef,
+          (snap) => {
+            if (snap.exists()) {
+              setUserRole(snap.data().role || 'user');
+            } else {
+              setUserRole('user');
+            }
+          },
+          (err) => {
+            console.error('Role snapshot error:', err);
+            setUserRole(null);
           }
-        }, (err) => {
-          console.error('User role snapshot error:', err);
-          setUserRole(null);
-        });
+        );
       } else {
         setUserRole(null);
       }
@@ -215,7 +226,7 @@ export const AuthProvider = ({ children }) => {
     userEmail,
     emailVerified,
     loading,
-    isAdmin: userRole === 'admin', // 🔑 Helper boolean for admin checks
+    isAdmin: userRole === 'admin',
     signup,
     signInWithGoogle,
     login,
@@ -228,7 +239,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

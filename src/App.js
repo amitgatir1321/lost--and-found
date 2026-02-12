@@ -18,6 +18,7 @@ import EmailVerification from './pages/EmailVerification';
 import ReportLost from './pages/ReportLost';
 import ReportFound from './pages/ReportFound';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminClaimsPage from './pages/AdminClaimsPage';
 import SetupAdmin from './pages/SetupAdmin';
 import Contact from './pages/Contact';
 import Profile from './pages/Profile';
@@ -97,6 +98,14 @@ function App() {
                   element={
                     <AdminRoute>
                       <AdminDashboard />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/claims"
+                  element={
+                    <AdminRoute>
+                      <AdminClaimsPage />
                     </AdminRoute>
                   }
                 />

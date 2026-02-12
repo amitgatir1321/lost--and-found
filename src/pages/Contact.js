@@ -141,10 +141,10 @@ const Contact = () => {
                 📧 Email Us
               </Typography>
               <Typography color="text.secondary" sx={{ mb: 1 }}>
-                support@lostandfound.com
+                amitgatir1308@gmail.com
               </Typography>
               <Typography color="text.secondary" variant="body2">
-                info@lostandfound.com
+                amitgatir1308@gmail.com
               </Typography>
             </Card>
           </Grid>
@@ -181,7 +181,7 @@ const Contact = () => {
                 📞 Call Us
               </Typography>
               <Typography color="text.secondary" sx={{ mb: 1 }}>
-                (555) 123-4567
+                +91 8999271196
               </Typography>
               <Typography color="text.secondary" variant="body2">
                 Mon-Fri: 9AM - 6PM
@@ -218,10 +218,10 @@ const Contact = () => {
                 <AccessTimeIcon sx={{ fontSize: 40, color: '#99744A' }} />
               </Box>
               <Typography variant="h6" fontWeight="bold" gutterBottom>
-                ⏰ 24/7 Support
+                ⏰ 24/7 chat Support
               </Typography>
               <Typography color="text.secondary" sx={{ mb: 1 }}>
-                Online chat available
+                Online chat available(whatsapp +91 8999271196)
               </Typography>
               <Typography color="text.secondary">
                 Always here to help
@@ -359,13 +359,13 @@ const Contact = () => {
                   Office Location
                 </Typography>
                 <Typography color="text.secondary" paragraph>
-                  123 Main Street, Suite 100
+                Lost & Found Office, Wagle Industrial Estate,
                 </Typography>
                 <Typography color="text.secondary" paragraph>
-                  Downtown District
+                  Thane West – 400604,
                 </Typography>
                 <Typography color="text.secondary">
-                  City, State 12345
+                 Maharashtra,India.
                 </Typography>
               </Card>
             </Grid>

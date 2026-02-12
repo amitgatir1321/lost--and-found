@@ -84,10 +84,10 @@ const Footer = () => {
               Contact Us
             </Typography>
             <Typography variant="body2" sx={{ mb: 1, opacity: 0.92, fontSize: 15 }}>
-              Email: support@lostandfound.com
+              Email: amitgatir1308@gmail.com
             </Typography>
             <Typography variant="body2" sx={{ mb: 1, opacity: 0.92, fontSize: 15 }}>
-              Phone: (555) 123-4567
+              Phone: +91 8999271196
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.92, fontSize: 15 }}>
               Available 24/7

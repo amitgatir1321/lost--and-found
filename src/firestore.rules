@@ -78,18 +78,44 @@ service cloud.firestore {
 
     // Claims collection
     match /claims/{claimId} {
+      // READ: Claimant, item owner, or admin
       allow read: if request.auth != null &&
         (
+          request.auth.uid == resource.data.claimantId ||
           request.auth.uid == resource.data.itemOwnerId ||
-          request.auth.uid == resource.data.claimantUserId ||
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
         );
 
+      // CREATE: Only authenticated users can create claims for their own claim submission
+      // Must have claimantId matching auth user, status must be 'pending', and either lostItemId or foundItemId
       allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.claimantUserId;
+        request.auth.uid == request.resource.data.claimantId &&
+        request.resource.data.status == 'pending' &&
+        (request.resource.data.lostItemId is string || request.resource.data.foundItemId is string) &&
+        request.resource.data.itemOwnerId is string &&
+        request.resource.data.claimantName is string &&
+        request.resource.data.claimantEmail is string &&
+        request.resource.data.claimMessage is string &&
+        request.resource.data.claimMessage.size() >= 20;
 
-      allow update: if request.auth != null &&
-        request.auth.uid == resource.data.itemOwnerId;
+      // UPDATE: Admins can do anything, item owners can change status to approved/rejected or share contact info
+      allow update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (
+          request.auth.uid == resource.data.itemOwnerId && (
+            // owner changing status to approved/rejected
+            (request.resource.data.status in ['approved','rejected'] &&
+              request.resource.data.itemOwnerId == resource.data.itemOwnerId &&
+              request.resource.data.claimantId == resource.data.claimantId) ||
+            // owner adding contact info after claim is already approved
+            (resource.data.status == 'approved' && request.resource.data.status == 'approved' && (
+              (request.resource.data.ownerContactInfo is string) ||
+              (request.resource.data.ownerContactType in ['whatsapp','email']) ||
+              (request.resource.data.contactSharedAt is timestamp)
+            ))
+          )
+        )
+      );
 
       allow delete: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';

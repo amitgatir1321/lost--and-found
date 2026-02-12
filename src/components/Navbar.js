@@ -76,11 +76,14 @@ const Navbar = () => {
     try {
       const claimsQuery = query(
         collection(db, 'claims'),
-        where('itemOwnerId', '==', currentUser.uid),
-        where('status', '==', 'pending')
+        where('itemOwnerId', '==', currentUser.uid)
       );
       const claimsSnap = await getDocs(claimsQuery);
-      setPendingClaimsCount(claimsSnap.size);
+      const pendingCount = claimsSnap.docs.filter((claimDoc) => {
+        const status = claimDoc.data()?.status;
+        return status === 'pending' || status === 'pending_admin_review';
+      }).length;
+      setPendingClaimsCount(pendingCount);
     } catch (error) {
       console.error('Error fetching pending claims:', error);
     }
@@ -349,6 +352,39 @@ const Navbar = () => {
                           <ListItemText>{item.label}</ListItemText>
                         </MenuItem>
                       ))}
+                      {userRole === 'admin' && (
+                        <>
+                          <Divider />
+                          <MenuItem 
+                            onClick={() => handleNavigate('/admin')}
+                            sx={{
+                              py: 1.5,
+                              '&:hover': {
+                                backgroundColor: 'rgba(65, 74, 55, 0.08)',
+                              }
+                            }}
+                          >
+                            <ListItemIcon sx={{ color: '#414A37' }}>
+                              <AdminPanelSettingsIcon />
+                            </ListItemIcon>
+                            <ListItemText>Admin Dashboard</ListItemText>
+                          </MenuItem>
+                          <MenuItem 
+                            onClick={() => handleNavigate('/admin/claims')}
+                            sx={{
+                              py: 1.5,
+                              '&:hover': {
+                                backgroundColor: 'rgba(65, 74, 55, 0.08)',
+                              }
+                            }}
+                          >
+                            <ListItemIcon sx={{ color: '#414A37' }}>
+                              <ClaimIcon />
+                            </ListItemIcon>
+                            <ListItemText>Claims Management</ListItemText>
+                          </MenuItem>
+                        </>
+                      )}
                       <Divider />
                       <MenuItem 
                         onClick={handleLogoutClick}
@@ -485,29 +521,54 @@ const Navbar = () => {
           ))}
 
           {currentUser && userRole === 'admin' && (
-            <ListItem disablePadding>
-              <ListItemButton 
-                onClick={() => handleNavigate('/admin')}
-                selected={isActive('/admin')}
-                sx={{
-                  py: 1.5,
-                  '&.Mui-selected': {
-                    backgroundColor: 'rgba(65, 74, 55, 0.15)',
-                    borderLeft: '4px solid #414A37',
-                  }
-                }}
-              >
-                <ListItemIcon sx={{ color: '#414A37', minWidth: 40 }}>
-                  <AdminPanelSettingsIcon />
-                </ListItemIcon>
-                <ListItemText 
-                  primary="Admin" 
-                  primaryTypographyProps={{
-                    fontWeight: isActive('/admin') ? 700 : 500
+            <>
+              <ListItem disablePadding>
+                <ListItemButton 
+                  onClick={() => handleNavigate('/admin')}
+                  selected={isActive('/admin')}
+                  sx={{
+                    py: 1.5,
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(65, 74, 55, 0.15)',
+                      borderLeft: '4px solid #414A37',
+                    }
                   }}
-                />
-              </ListItemButton>
-            </ListItem>
+                >
+                  <ListItemIcon sx={{ color: '#414A37', minWidth: 40 }}>
+                    <AdminPanelSettingsIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Admin Dashboard" 
+                    primaryTypographyProps={{
+                      fontWeight: isActive('/admin') ? 700 : 500
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton 
+                  onClick={() => handleNavigate('/admin/claims')}
+                  selected={isActive('/admin/claims')}
+                  sx={{
+                    py: 1.5,
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(65, 74, 55, 0.15)',
+                      borderLeft: '4px solid #414A37',
+                    }
+                  }}
+                >
+                  <ListItemIcon sx={{ color: '#414A37', minWidth: 40 }}>
+                    <ClaimIcon />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Claims Management" 
+                    primaryTypographyProps={{
+                      fontWeight: isActive('/admin/claims') ? 700 : 500
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </>
           )}
 
           {currentUser && (

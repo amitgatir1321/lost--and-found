@@ -25,9 +25,10 @@ import {
 } from '@mui/material';
 import UIButton from '../components/UI/Button';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
+import { submitClaim } from '../services/claimsService';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import SearchIcon from '@mui/icons-material/Search';
 import FindInPageIcon from '@mui/icons-material/FindInPage';
@@ -208,24 +209,44 @@ const Home = () => {
       return;
     }
 
-    await addDoc(collection(db, 'claims'), {
-      itemId: selectedItem.id,
-      itemTitle: selectedItem.itemName || selectedItem.title || '',
-      itemType: selectedItem.itemType,
-      itemOwnerId: selectedItem.userId,
-      itemOwnerEmail: selectedItem.userEmail || '',
-      claimantUserId: currentUser.uid,
-      claimantEmail: currentUser.email || '',
-      claimantName: currentUser.displayName || currentUser.email || '',
-      message: claimMessage,
-      status: 'pending',
-      createdAt: serverTimestamp()
-    });
+    if (claimMessage.trim().length < 20) {
+      alert('Please provide at least 20 characters of claim details');
+      return;
+    }
 
-    setOpenClaimDialog(false);
-    setClaimMessage('');
-    setClaimSuccess(true);
-    setTimeout(() => setClaimSuccess(false), 5000);
+    try {
+      const tabType = selectedItem.itemType === 'lost' ? 'lost' : 'found';
+      
+      const claimData = {
+        claimantId: currentUser.uid,
+        claimantName: currentUser.displayName || currentUser.email,
+        claimantEmail: currentUser.email || '',
+        itemOwnerId: selectedItem.userId,
+        claimMessage: claimMessage.trim(),
+        itemName: selectedItem.itemName || selectedItem.title || 'Item',
+        category: selectedItem.category || 'miscellaneous'
+      };
+
+      if (tabType === 'lost') {
+        claimData.lostItemId = selectedItem.id;
+      } else {
+        claimData.foundItemId = selectedItem.id;
+      }
+
+      const result = await submitClaim(claimData);
+
+      if (result.success) {
+        setOpenClaimDialog(false);
+        setClaimMessage('');
+        setClaimSuccess(true);
+        setTimeout(() => setClaimSuccess(false), 5000);
+      } else {
+        alert('Failed to submit claim: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to submit claim:', error);
+      alert('Failed to submit claim: ' + error.message);
+    }
   };
 
   return (

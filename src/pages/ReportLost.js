@@ -324,7 +324,6 @@ const ReportLost = () => {
         location: '',
         date: '',
         description: '',
-        whatsappNumber: '',
         contactEmail: currentUser.email,
         reward: ''
       });
@@ -416,9 +415,24 @@ const ReportLost = () => {
               <Typography variant="h4" fontWeight={800} color="primary" gutterBottom>
                 Report Lost Item
               </Typography>
-              <Typography color="text.secondary" sx={{ mb: 4 }}>
+              <Typography color="text.secondary" sx={{ mb: 3 }}>
                 Fill in the details below to help our community find your lost item
               </Typography>
+
+              {/* 📊 Report Processing Info */}
+              <Paper sx={{ p: 2.5, mb: 3, backgroundColor: '#e3f2fd', borderLeft: '4px solid #1976d2' }}>
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, color: '#1565c0' }}>
+                  📊 How Your Report Works
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#0d47a1', lineHeight: 1.6 }}>
+                  Your report is submitted for admin review. Once we verify the details and match it with found items:
+                </Typography>
+                <Box component="ul" sx={{ mt: 1, pl: 2, color: '#0d47a1' }}>
+                  <li><Typography variant="body2">A detailed report will be generated</Typography></li>
+                  <li><Typography variant="body2">The report will be sent to you via WhatsApp</Typography></li>
+                  <li><Typography variant="body2">Once your item is recovered, a final report will also be sent</Typography></li>
+                </Box>
+              </Paper>
 
               {errors.submit && (
                 <Alert severity="error" sx={{ mb: 3 }} onClose={() => setErrors((p) => ({ ...p, submit: '' }))}>

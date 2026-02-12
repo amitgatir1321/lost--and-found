@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===========================
+    // 🔐 HELPER FUNCTIONS
+    // ===========================
+    
+    // Check if user is admin
+    function isAdmin(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+             get(/databases/$(database)/documents/users/$(uid)).data.role == 'admin';
+    }
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // ===========================
+    // 👤 USERS COLLECTION
+    // ===========================
+    match /users/{userId} {
+      // 📖 READ: Users can read their own profile. Admins can read all.
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin(request.auth.uid));
+      
+      // ✏️ WRITE: Users can only create/update their own data. Prevent role changes except to become admin.
+      allow create: if isOwner(userId) && 
+                       request.resource.data.role == 'user' &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.email == request.auth.token.email;
+      
+      allow update: if isOwner(userId) && 
+                       request.resource.data.uid == resource.data.uid &&     
+                       request.resource.data.email == resource.data.email &&
+                       (
+                         // Can change role from 'user' to 'admin' or from missing to 'admin'
+                         ((!('role' in resource.data) || resource.data.role == 'user') && request.resource.data.role == 'admin') ||
+                         // Or keep the same role
+                         request.resource.data.role == resource.data.role
+                       );
+      
+      // Admins can update any user's fields
+      allow update: if isAdmin(request.auth.uid);
+      
+      // 🗑️ DELETE: Only admins can delete users
+      allow delete: if isAdmin(request.auth.uid);
+    }
+    
+    // ===========================
+    // 📋 LOST_ITEMS COLLECTION
+    // ===========================
+    match /lost_items/{itemId} {
+      // 📖 READ: Everyone can read lost items (to find matches)
+      allow read: if true;
+      
+      // ✏️ CREATE: Only authenticated users can report lost items (status must start as 'pending')
+      allow create: if isAuthenticated() && 
+               request.resource.data.userId == request.auth.uid &&
+               request.resource.data.status == 'pending';
+      
+      // ✏️ UPDATE: Item owner can update their own items (until resolved). Admins can always update.
+      allow update: if isAuthenticated() && 
+                       (
+                         (isOwner(resource.data.userId) && resource.data.status != 'resolved') ||
+                         isAdmin(request.auth.uid)
+                       );
+      
+      // 🗑️ DELETE: Item owner can delete (until resolved). Admins can always delete.
+      allow delete: if isAuthenticated() && 
+                       (
+                         (isOwner(resource.data.userId) && resource.data.status != 'resolved') ||
+                         isAdmin(request.auth.uid)
+                       );
+    }
+    
+    // ===========================
+    // 📦 FOUND_ITEMS COLLECTION
+    // ===========================
+    match /found_items/{itemId} {
+      // 📖 READ: Everyone can read found items
+      allow read: if true;
+      
+      // ✏️ CREATE: Only authenticated users can report found items (status must start as 'available')
+      allow create: if isAuthenticated() && 
+               request.resource.data.userId == request.auth.uid &&
+               request.resource.data.status == 'available';
+      
+      // ✏️ UPDATE: Item reporter can update (until resolved). Admins can always update.
+      allow update: if isAuthenticated() && 
+                       (
+                         (isOwner(resource.data.userId) && resource.data.status != 'resolved') ||
+                         isAdmin(request.auth.uid)
+                       );
+      
+      // 🗑️ DELETE: Item reporter can delete (until resolved). Admins can always delete.
+      allow delete: if isAuthenticated() && 
+                       (
+                         (isOwner(resource.data.userId) && resource.data.status != 'resolved') ||
+                         isAdmin(request.auth.uid)
+                       );
+    }
+    
+    // ===========================
+    // 📝 CLAIMS COLLECTION
+    // ===========================
+    match /claims/{claimId} {
+      // 📖 READ: Admins can read all claims. Claimant or item owner can read related claims.
+      allow read: if isAuthenticated() && (
+        isAdmin(request.auth.uid) ||
+        request.auth.uid == resource.data.claimantId ||
+        request.auth.uid == resource.data.itemOwnerId
+      );
+
+      // ✏️ CREATE: Only authenticated users can create their own claim
+      // Must include: claimantId, claimantName, claimantEmail, itemOwnerId, claimMessage (min 20 chars), 
+      // and either lostItemId or foundItemId. Status must be 'pending'.
+      allow create: if isAuthenticated() &&
+                      request.resource.data.claimantId == request.auth.uid &&
+                      request.resource.data.status == 'pending' &&
+                      (request.resource.data.lostItemId is string || request.resource.data.foundItemId is string) &&
+                      request.resource.data.itemOwnerId is string &&
+                      request.resource.data.claimantName is string &&
+                      request.resource.data.claimantEmail is string &&
+                      request.resource.data.claimMessage is string &&
+                      request.resource.data.claimMessage.size() >= 20;
+
+      // ✏️ UPDATE: 
+      // - Item owner can approve/reject claims and share contact info
+      // - Admins can update any claim (change status, add notes)
+      allow update: if isAuthenticated() && (
+        // Admins can do everything
+        isAdmin(request.auth.uid) ||
+        // Item owner can change status to approved/rejected
+        (
+          request.auth.uid == resource.data.itemOwnerId && (
+            // Can change status to approved or rejected
+            (
+              request.resource.data.status in ['approved', 'rejected'] &&
+              request.resource.data.itemOwnerId == resource.data.itemOwnerId &&
+              request.resource.data.claimantId == resource.data.claimantId
+            ) ||
+            // Can share contact info when claim is approved
+            (
+              resource.data.status == 'approved' &&
+              request.resource.data.status == 'approved' &&
+              (
+                request.resource.data.ownerContactInfo is map ||
+                request.resource.data.contactSharedAt is timestamp
+              )
+            )
+          )
+        )
+      );
+
+      // 🗑️ DELETE: Only admins can delete claims
+      allow delete: if isAuthenticated() && isAdmin(request.auth.uid);
+    }
+
+    // ===========================
+    // 💬 CONTACT_MESSAGES COLLECTION
+    // ===========================
+    match /contactMessages/{messageId} {
+      // 📖 READ: Only admins can read contact messages
+      allow read: if isAuthenticated() && isAdmin(request.auth.uid);
+      
+      // ✏️ CREATE: Anyone (even unauthenticated) can send a message
+      allow create: if true;
+      
+      // ✏️ UPDATE: Only admins can update
+      allow update: if isAuthenticated() && isAdmin(request.auth.uid);
+      
+      // 🗑️ DELETE: Only admins can delete
+      allow delete: if isAuthenticated() && isAdmin(request.auth.uid);
+    }
+  }
+}

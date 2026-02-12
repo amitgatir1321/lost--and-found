@@ -564,6 +564,21 @@ const ReportFound = () => {
                 </Alert>
               )}
 
+              {/* 📊 Report Processing Info */}
+              <Paper sx={{ p: 2.5, mb: 3, backgroundColor: '#f3e5f5', borderLeft: '4px solid #7b1fa2' }}>
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, color: '#6a1b9a' }}>
+                  📊 How Your Report Works
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#4a148c', lineHeight: 1.6 }}>
+                  Your report is submitted for admin review. Once we verify the details and match it with lost items:
+                </Typography>
+                <Box component="ul" sx={{ mt: 1, pl: 2, color: '#4a148c' }}>
+                  <li><Typography variant="body2">A detailed report will be generated</Typography></li>
+                  <li><Typography variant="body2">The report will be sent to the item owner via WhatsApp</Typography></li>
+                  <li><Typography variant="body2">Once the item is recovered, a final report will also be sent</Typography></li>
+                </Box>
+              </Paper>
+
               <Box component="form" onSubmit={handleSubmit}>
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
